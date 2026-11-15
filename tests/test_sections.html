@@ -5,6 +5,7 @@
 <pre id="result">Running section tests...</pre>
 <script type="module">
   import { CATEGORIES, TOPIC_WORDS, wordInSection } from "../js/config.js";
+  import { makeOptions } from "../js/game.js";
 
   function assert(condition, message) {
     if (!condition) throw new Error(message);
@@ -43,6 +44,16 @@
     assert(wordInSection({ danish: "  SØNDAG ", category: "substantiver" }, "weekdays"), "Imported nouns should match without case or whitespace sensitivity");
     assert(!wordInSection({ danish: "søndag", category: "verber" }, "weekdays"), "Topics must not include non-nouns");
     assert(!wordInSection({ danish: "cykel", category: "substantiver" }, "food"), "Unrelated nouns must not enter food");
+    const weekdaysWithIds = weekdays.map((word, id) => ({ ...word, id }));
+    const unrelated = { id: "other", danish: "hund", english: "dog" };
+    const weekdayOptions = makeOptions(weekdaysWithIds[0], weekdaysWithIds, "english", 3, [unrelated]);
+    assert(weekdayOptions.length === 3 && weekdayOptions.every((option) => weekdaysWithIds.some((word) => word.english === option)), "Lesson choices must prefer the whole section");
+    const correct = { id: 1, english: "Tuesday" };
+    const section = [correct, { id: 2, english: "Wednesday" }, { id: 3, english: " tuesday " }];
+    const fallback = [{ id: 4, english: "Wednesday" }, { id: 5, english: "dog" }, { id: 6, english: "DOG" }];
+    const smallOptions = makeOptions(correct, section, "english", 3, fallback);
+    assert(smallOptions.length === 3 && smallOptions.includes("Tuesday") && smallOptions.includes("Wednesday") && smallOptions.some((option) => option.toLowerCase() === "dog"), "Small sections must use distinct fallback choices");
+    assert(makeOptions(correct, [correct], "english", 3, []).length === 1, "Do not invent choices when too few distinct answers exist");
     document.querySelector("#result").textContent = "PASS";
   } catch (error) {
     document.querySelector("#result").textContent = `FAIL: ${error.message}`;

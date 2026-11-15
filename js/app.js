@@ -672,7 +672,7 @@ function filterWords(filter, category) {
   return words;
 }
 
-async function startSession({ mode = "multipleChoice", filter = "all", category = "", total = 10 } = {}) {
+async function startSession({ mode = "multipleChoice", filter = "all", category = "", total = 10, sectionChoices = false } = {}) {
   if (!state.words.length) {
     showNotice("Load vocabulary with Import words before starting a practice session.", "error");
     return;
@@ -687,6 +687,7 @@ async function startSession({ mode = "multipleChoice", filter = "all", category 
     mode,
     filter,
     category,
+    sectionChoices,
     words: candidates.slice(0, limit),
     index: 0,
     correct: 0,
@@ -772,6 +773,9 @@ function renderPrompt(card, word, mode, session) {
     card.append(button);
     return button;
   };
+  const meaningOptions = () => session.sectionChoices
+    ? makeOptions(word, wordsInSection(session.category), "english", 3, state.words)
+    : makeOptions(word, state.words, "english");
 
   if (mode === "multipleChoice") {
     ask("Choose the Danish translation");
@@ -781,12 +785,12 @@ function renderPrompt(card, word, mode, session) {
     ask("Choose the English translation");
     prompt(word.danish, true);
     addSpeech(word.danish);
-    renderChoices(card, makeOptions(word, state.words, "english"), word.english, word, session);
+    renderChoices(card, meaningOptions(), word.english, word, session);
   } else if (mode === "listening") {
     ask("Listen, then choose the meaning");
     prompt("Which meaning did you hear?");
     addSpeech(word.danish);
-    renderChoices(card, makeOptions(word, state.words, "english"), word.english, word, session);
+    renderChoices(card, meaningOptions(), word.english, word, session);
   } else if (mode === "typing" || mode === "spelling") {
     const reverseTyping = mode === "typing" && session.typingDirection === "english";
     ask(mode === "spelling" ? "Listen and type the Danish word" : "Type the translation");
@@ -1018,7 +1022,7 @@ async function finishSession() {
   home.addEventListener("click", () => showView("home"));
   const again = makeElement("button", "btn btn-secondary", "Practice again");
   again.type = "button";
-  again.addEventListener("click", () => startSession({ mode: session.mode, filter: session.filter, category: session.category }));
+  again.addEventListener("click", () => startSession({ mode: session.mode, filter: session.filter, category: session.category, sectionChoices: session.sectionChoices }));
   summary.append(home, again);
   container.append(summary);
   updateProfile();
@@ -1051,7 +1055,7 @@ function renderLessons() {
     bar.append(fill);
     const button = makeElement("button", "btn btn-primary", "Practice this section");
     button.type = "button";
-    button.addEventListener("click", () => startSession({ category, mode: $("#lesson-mode .lesson-mode-button[aria-pressed='true']").dataset.lessonMode }));
+    button.addEventListener("click", () => startSession({ category, mode: $("#lesson-mode .lesson-mode-button[aria-pressed='true']").dataset.lessonMode, sectionChoices: true }));
     card.append(heading, bar, button);
     list.append(card);
   });

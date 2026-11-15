@@ -24,6 +24,7 @@ Dictionary search and browser-voice checks are available at <http://localhost:80
 - Danish cardinal numbers from 0 to 100, included as an additional practice category.
 - Multiple choice, Danish-to-English, typing, spelling/listening, flashcards, listening comprehension, mixed practice, and 60-second challenge.
 - Choose one of six practice-type icons at the top of Lessons; hover over an icon for its description. Section sessions use the selected type throughout.
+- In lesson translation and listening exercises, English choices come from the same section where possible; small sections use other vocabulary to fill distinct choices.
 - Per-answer history, accuracy, streak, response time, XP, mastery, and review scheduling in IndexedDB.
 - Dashboard, section progress, weak-area recommendations, exam practice, search, favorites, and JSON backup/restore.
 - The Dictionary searches Danish and English vocabulary, including imported words. Flagged play buttons identify each language: Danish audio uses the selected voice; English audio uses an available browser voice.

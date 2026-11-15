@@ -33,8 +33,24 @@ export function isTypingCorrect(answer, expected) {
   return levenshteinDistance(normalizedAnswer, normalizedExpected) <= allowedDistance;
 }
 
-export function makeOptions(correctWord, words, direction = "danish", count = 3) {
+export function makeOptions(correctWord, words, direction = "danish", count = 3, fallbackWords = null) {
   const property = direction === "english" ? "english" : "danish";
+  if (fallbackWords) {
+    if (count <= 1) return [correctWord[property]];
+    const seen = new Set([normalizeAnswer(correctWord[property])]);
+    const choices = [];
+    for (const pool of [words, fallbackWords]) {
+      for (const word of shuffle(pool)) {
+        const value = word[property];
+        const normalized = normalizeAnswer(value);
+        if (word.id === correctWord.id || !normalized || seen.has(normalized)) continue;
+        choices.push(value);
+        seen.add(normalized);
+        if (choices.length === count - 1) return shuffle([...choices, correctWord[property]]);
+      }
+    }
+    return shuffle([...choices, correctWord[property]]);
+  }
   const choices = words
     .filter((word) => word.id !== correctWord.id)
     .sort(() => Math.random() - 0.5)
