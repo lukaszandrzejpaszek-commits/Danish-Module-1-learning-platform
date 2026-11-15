@@ -1,0 +1,10 @@
+{
+  "name": "Danish Module 1 Trainer",
+  "short_name": "Danish Trainer",
+  "description": "Offline-first Danish vocabulary, listening, and exam practice.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f7",
+  "theme_color": "#c8102e",
+  "lang": "en"
+}

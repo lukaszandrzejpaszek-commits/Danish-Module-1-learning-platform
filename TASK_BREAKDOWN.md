@@ -2,8 +2,8 @@
 
 ## 📋 Complete Task List (43 Tasks)
 
-### ✅ STATUS: PLANNING COMPLETE
-All requirements analyzed and organized into 12 implementation phases with clear dependencies.
+### IMPLEMENTATION STATUS
+Core app and PDF vocabulary import are implemented. The checkboxes below distinguish implemented tasks from follow-up validation and optional cloud sync.
 
 ---
 
@@ -14,9 +14,9 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 4-6 hours  
 **Dependencies**: None  
 **Tasks**:
-- [ ] 1-pdf-extract: Extract vocabulary from Saadan_ordliste.pdf
-- [ ] 1-json-structure: Organize into JSON files by category
-- [ ] 1-sample-data: Create vocabulary.json sample data
+- [x] 1-pdf-extract: Extract vocabulary from Saadan_ordliste.pdf
+- [x] 1-json-structure: Organize into JSON files by category
+- [x] 1-sample-data: Create vocabulary.json sample data
 
 **Output**: `data/vocabulary.json` with all word categories
 
@@ -27,9 +27,9 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 6-8 hours  
 **Dependencies**: Phase 1 (partial)  
 **Tasks**:
-- [ ] 2-config-file: Create `js/config.js`
-- [ ] 2-css-styles: Create `css/styles.css` (responsive + dark mode)
-- [ ] 2-storage-db: Create `js/storage.js` (Dexie.js)
+- [x] 2-config-file: Create `js/config.js`
+- [x] 2-css-styles: Create `css/styles.css` (responsive + dark mode)
+- [x] 2-storage-db: Create `js/storage.js` (native IndexedDB, no network dependency)
 
 **Output**: Complete backend infrastructure and styling system
 
@@ -40,9 +40,9 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 5-6 hours  
 **Dependencies**: Phase 2  
 **Tasks**:
-- [ ] 3-user-auth: User profile management
-- [ ] 3-vocab-loader: Load JSON → IndexedDB
-- [ ] 3-dashboard: Dashboard UI with stats
+- [x] 3-user-auth: Local user profile, XP, and achievements
+- [x] 3-vocab-loader: Load JSON → IndexedDB
+- [x] 3-dashboard: Dashboard UI with stats
 
 **Output**: Application can load data and display it
 
@@ -53,16 +53,16 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 12-16 hours  
 **Dependencies**: Phase 3  
 **Tasks**:
-- [ ] 4-tts-system: TTS System (Piper + Web Speech API)
-- [ ] 4-tts-controls: TTS buttons (Slow/Normal/Repeat)
-- [ ] 4-mode-multichoice: Multiple Choice mode
-- [ ] 4-mode-translate: Danish→English mode
-- [ ] 4-mode-typing: Typing Exercise mode
-- [ ] 4-mode-spelling: Spelling/Listening mode
-- [ ] 4-mode-flashcard: Flashcard mode
-- [ ] 4-mode-listening: Listening Exercise mode
-- [ ] 4-mode-mixed: Mixed Challenge mode
-- [ ] 4-mode-speed: Speed Round mode (60s timer)
+- [x] 4-tts-system: Browser Danish speech synthesis (`da-DK`); Piper model not bundled
+- [x] 4-tts-controls: Normal/slow/repeat playback
+- [x] 4-mode-multichoice: Multiple Choice mode
+- [x] 4-mode-translate: Danish→English mode
+- [x] 4-mode-typing: Bidirectional typing with typo tolerance
+- [x] 4-mode-spelling: Spelling/Listening mode
+- [x] 4-mode-flashcard: Flashcard mode with review ratings
+- [x] 4-mode-listening: Listening Exercise mode
+- [x] 4-mode-mixed: Mixed Challenge mode
+- [x] 4-mode-speed: Speed Round mode (60s timer)
 
 **Output**: MVP learning application with 8 practice modes
 
@@ -73,11 +73,11 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 8-10 hours  
 **Dependencies**: Phase 4  
 **Tasks**:
-- [ ] 5-progress-tracking: Track attempts (attempts, correct, wrong, streak, mastery%)
-- [ ] 5-weak-area-detection: Identify weak areas (< 70% accuracy)
-- [ ] 5-spaced-repetition: Schedule reviews based on mastery
-- [ ] 5-stats-page: Dashboard with Chart.js graphs
-- [ ] 5-smart-training: Filter by failed/difficult/new words
+- [x] 5-progress-tracking: Track attempts, correct/wrong, streak, mastery, and response time
+- [x] 5-weak-area-detection: Identify weak categories, missed words, and slow responses
+- [x] 5-spaced-repetition: Schedule reviews by correct-answer streak
+- [x] 5-stats-page: Dashboard with daily and category charts (native canvas)
+- [x] 5-smart-training: Filter by failed/difficult/new/due/favorite words and category
 
 **Output**: Advanced analytics and smart learning features
 
@@ -88,10 +88,10 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 5-6 hours  
 **Dependencies**: Phase 5  
 **Tasks**:
-- [ ] 6-xp-system: XP tracking (Easy=1, Medium=3, Hard=5)
-- [ ] 6-levels: Achievement levels system
-- [ ] 6-achievements: Badge/achievement tracking
-- [ ] 6-ai-coach: Weekly AI insights
+- [x] 6-xp-system: XP tracking (Easy=1, Medium=3, Hard=5)
+- [x] 6-levels: Achievement levels system
+- [x] 6-achievements: Badge/achievement tracking
+- [x] 6-ai-coach: Local weekly study insights (no external AI service)
 
 **Output**: Gamification system complete
 
@@ -102,7 +102,7 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 3-4 hours  
 **Dependencies**: Phase 4  
 **Tasks**:
-- [ ] 7-exam-mode: Exam simulator (20/30/50 questions)
+- [x] 7-exam-mode: Exam simulator (20/30/50 questions)
 
 **Output**: Exam preparation feature
 
@@ -113,9 +113,9 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 4-5 hours  
 **Dependencies**: Phase 3, 5  
 **Tasks**:
-- [ ] 8-search: Global search by word/category
-- [ ] 8-favorites: Star/favorite words
-- [ ] 8-import-export: Import JSON/CSV, export progress
+- [x] 8-search: Global search by word/category/translation
+- [x] 8-favorites: Star/favorite words
+- [x] 8-import-export: Import JSON/CSV, export and restore backups
 
 **Output**: Advanced user features
 
@@ -126,10 +126,10 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 6-8 hours  
 **Dependencies**: Phase 2  
 **Tasks**:
-- [ ] 9-responsive-design: Mobile/tablet/desktop layouts
-- [ ] 9-theme-system: Dark/light mode toggle
-- [ ] 9-modal-dialogs: Settings/profile/sync modals
-- [ ] 9-navigation: Navigation and view switching
+- [x] 9-responsive-design: Mobile/tablet/desktop layouts
+- [x] 9-theme-system: Dark/light mode toggle
+- [x] 9-modal-dialogs: Settings/profile/sync modals
+- [x] 9-navigation: Navigation and view switching
 
 **Output**: Professional UI/UX complete
 
@@ -140,7 +140,7 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 3-4 hours  
 **Dependencies**: Phase 2  
 **Tasks**:
-- [ ] 10-local-storage: IndexedDB persistence verification
+- [x] 10-local-storage: IndexedDB persistence verification
 - [ ] 10-cloud-sync: Optional cloud sync structure (Firebase/Supabase)
 
 **Output**: Data persistence infrastructure
@@ -152,8 +152,8 @@ All requirements analyzed and organized into 12 implementation phases with clear
 **Time**: 8-10 hours  
 **Dependencies**: All phases  
 **Tasks**:
-- [ ] 11-example-words: Populate 200-300 vocabulary words
-- [ ] 11-test-suite: Unit tests for core features
+- [x] 11-example-words: Populate from the supplied PDF (1,309 translated entries)
+- [x] 11-test-suite: Vocabulary extraction and data-shape tests
 - [ ] 11-browser-compat: Browser compatibility testing
 
 **Output**: Full test coverage and production vocabulary data

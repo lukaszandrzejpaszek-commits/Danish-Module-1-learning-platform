@@ -3,9 +3,11 @@
 ## Project Overview
 Building a comprehensive web application to help students prepare for the Danish Module 1 exam through vocabulary learning, listening comprehension, and progress tracking.
 
-**Status**: Planning Phase ✅  
+**Status**: Core application implemented; final validation in progress
 **Total Tasks**: 43  
 **Critical Tasks**: 11
+
+The initial implementation now includes all practice modes, IndexedDB progress tracking, offline caching, and 1,309 categorized translations extracted from `Saadan_ordliste.pdf`. Browser-provided Danish speech synthesis is implemented; an offline Piper voice model is not bundled.
 
 ---
 
