@@ -210,6 +210,8 @@ const ENGLISH_TO_DANISH = {
   "TTS Speed:": "Talehastighed:",
   "TTS Pitch:": "Tonehøjde:",
   "Daily answer goal:": "Dagligt svarsmål:",
+  "Seconds before next question:": "Sekunder til næste spørgsmål:",
+  "Enter a whole number from 1 to 30 for the answer countdown.": "Indtast et helt tal fra 1 til 30 for nedtællingen efter svar.",
   "Enable Animations": "Aktivér animationer",
   "Sound Effects": "Lydeffekter",
   "Reset to Default": "Nulstil til standard",
@@ -327,6 +329,7 @@ const ENGLISH_TO_DANISH = {
 };
 
 const PATTERNS = [
+  [/^Next question in (\d+) seconds\.$/, (seconds) => `Næste spørgsmål om ${seconds} sek.`],
   [/^(\d+) dictionary results?\.$/, (count) => `${count} ${count === "1" ? "resultat" : "resultater"} i ordbogen.`],
   [/^Hear Danish: (.*)$/, (word) => `Hør dansk: ${word}`],
   [/^Hear English: (.*)$/, (word) => `Hør engelsk: ${word}`],

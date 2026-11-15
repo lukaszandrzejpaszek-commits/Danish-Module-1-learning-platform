@@ -836,6 +836,10 @@ a:focus-visible {
   display: none;
 }
 
+.answer-countdown {
+  color: var(--muted);
+}
+
 .answer-form {
   display: flex;
   gap: 10px;

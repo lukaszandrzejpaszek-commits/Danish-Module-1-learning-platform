@@ -144,7 +144,10 @@ function addToolbar() {
 }
 
 function showView(name) {
-  if (name !== "practice-session") cancelRecognition();
+  if (name !== "practice-session") {
+    cancelRecognition();
+    if (state.session) window.clearInterval(state.session.answerTimer);
+  }
   currentView = name;
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
   $$(".nav-btn").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
@@ -471,6 +474,12 @@ function applySettings() {
   $("#tts-speed").value = String(state.settings.speechRate || 1);
   $("#tts-pitch").value = String(state.settings.speechPitch || 1);
   $("#daily-goal").value = String(state.settings.dailyGoal || SETTINGS_DEFAULTS.dailyGoal);
+  const delay = state.settings.answerDelay;
+  if (!Number.isInteger(delay) || delay < 1 || delay > 30) {
+    console.warn("Invalid saved answer delay; using the default.");
+    state.settings.answerDelay = SETTINGS_DEFAULTS.answerDelay;
+  }
+  $("#answer-delay").value = String(state.settings.answerDelay);
   setSpeechMode(state.settings.speechEngine);
   setSpeechRate(state.settings.speechRate || 1);
   setSpeechPitch(state.settings.speechPitch || 1);
@@ -478,13 +487,19 @@ function applySettings() {
 }
 
 async function saveSettingsFromForm() {
+  const delayInput = $("#answer-delay");
+  if (!delayInput.value || !delayInput.checkValidity()) {
+    showNotice("Enter a whole number from 1 to 30 for the answer countdown.", "error");
+    return;
+  }
   state.settings = {
     ...state.settings,
     theme: $("#dark-mode").checked ? "dark" : "light",
     speechEngine: $("#tts-engine").value === "browser" ? "browser" : "piper",
     speechRate: Number($("#tts-speed").value),
     speechPitch: Number($("#tts-pitch").value),
-    dailyGoal: Math.min(200, Math.max(5, Number($("#daily-goal").value) || SETTINGS_DEFAULTS.dailyGoal))
+    dailyGoal: Math.min(200, Math.max(5, Number($("#daily-goal").value) || SETTINGS_DEFAULTS.dailyGoal)),
+    answerDelay: Number(delayInput.value)
   };
   await saveSettings(state.settings);
   applySettings();
@@ -696,6 +711,7 @@ async function startSession({ mode = "multipleChoice", filter = "all", category 
     return;
   }
   const limit = mode === "speed" ? candidates.length : Math.min(total, candidates.length);
+  if (state.session) window.clearInterval(state.session.answerTimer);
   state.session = {
     mode,
     filter,
@@ -710,6 +726,7 @@ async function startSession({ mode = "multipleChoice", filter = "all", category 
     questionStartedAt: Date.now(),
     answeredCurrent: false,
     timer: null,
+    answerTimer: null,
     secondsRemaining: mode === "speed" ? 60 : null,
     results: [],
     currentMode: mode
@@ -729,6 +746,8 @@ function renderQuestion() {
   cancelRecognition();
   const session = state.session;
   if (!session) return;
+  window.clearInterval(session.answerTimer);
+  session.answerTimer = null;
   if (session.mode !== "speed" && session.index >= session.words.length) {
     finishSession();
     return;
@@ -1053,6 +1072,7 @@ async function submitAnswer(word, correct, answer, advanceImmediately = false) {
   session.results.push({ word, correct, responseTime });
   await reloadData();
   refreshDashboard();
+  if (state.session !== session || currentView !== "practice-session") return;
   if (session.mode === "speed" || advanceImmediately) {
     session.index += 1;
     renderQuestion();
@@ -1083,11 +1103,27 @@ async function submitAnswer(word, correct, answer, advanceImmediately = false) {
   });
   const next = makeElement("button", "btn btn-primary next-question", session.index + 1 >= session.words.length ? "Finish session" : "Next word");
   next.type = "button";
-  next.addEventListener("click", () => {
+  const advance = () => {
+    if (state.session !== session || currentView !== "practice-session") return;
+    window.clearInterval(session.answerTimer);
+    session.answerTimer = null;
     session.index += 1;
     renderQuestion();
-  });
-  card.append(next);
+  };
+  next.addEventListener("click", advance);
+  const countdown = makeElement("p", "answer-countdown");
+  const deadline = Date.now() + state.settings.answerDelay * 1000;
+  const updateCountdown = () => {
+    const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    setUiText(countdown, `Next question in ${remaining} seconds.`);
+    if (remaining === 0) {
+      window.clearInterval(session.answerTimer);
+      session.answerTimer = window.setTimeout(advance, 250);
+    }
+  };
+  updateCountdown();
+  session.answerTimer = window.setInterval(updateCountdown, 250);
+  card.append(countdown, next);
   if (session.currentMode === "typing" || session.currentMode === "spelling") {
     $$(".answer-form input, .answer-form button", card).forEach((control) => { control.disabled = true; });
   }
@@ -1115,6 +1151,7 @@ async function finishSession() {
     return;
   }
   window.clearInterval(session.timer);
+  window.clearInterval(session.answerTimer);
   state.session = null;
   const elapsedSeconds = Math.round((Date.now() - session.startedAt) / 1000);
   const accuracy = session.answered ? Math.round((session.correct / session.answered) * 100) : 0;

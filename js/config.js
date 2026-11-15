@@ -190,6 +190,7 @@ export const MODES = {
 export const SETTINGS_DEFAULTS = {
   theme: "light",
   dailyGoal: 20,
+  answerDelay: 5,
   speechRate: 1,
   speechEngine: "piper",
   uiLanguage: "en"
