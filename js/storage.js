@@ -1,6 +1,7 @@
 const DATABASE_NAME = "danish-module-1-trainer";
 const DATABASE_VERSION = 1;
 let databasePromise;
+const BACKUP_STORES = ["words", "progress", "attempts", "sessions", "profile", "settings"];
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -76,6 +77,97 @@ export function openDatabase() {
 export async function getAll(storeName) {
   const db = await openDatabase();
   return requestResult(db.transaction(storeName, "readonly").objectStore(storeName).getAll());
+}
+
+export async function createBackup() {
+  const db = await openDatabase();
+  const transaction = db.transaction(BACKUP_STORES, "readonly");
+  const done = transactionDone(transaction);
+  const values = await Promise.all(BACKUP_STORES.map((name) => requestResult(transaction.objectStore(name).getAll())));
+  await done;
+  return {
+    schemaVersion: 2,
+    exportedAt: new Date().toISOString(),
+    stores: Object.fromEntries(BACKUP_STORES.map((name, index) => [name, values[index]]))
+  };
+}
+
+export function validateBackup(data) {
+  const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  if (!isObject(data) || ![1, 2].includes(data.schemaVersion)) {
+    throw new Error("Unsupported or invalid backup file.");
+  }
+  let stores;
+  if (data.schemaVersion === 1) {
+    if (!isObject(data.vocabulary) || !Array.isArray(data.attempts) || !isObject(data.profile)) {
+      throw new Error("Invalid backup file.");
+    }
+    const categories = Object.values(data.vocabulary);
+    if (!categories.every(Array.isArray)) throw new Error("Invalid backup file.");
+    const entries = categories.flat();
+    if (!entries.every((entry) => isObject(entry) && (entry.progress == null || isObject(entry.progress)))) {
+      throw new Error("Invalid backup file.");
+    }
+    stores = {
+      words: entries.map(({ progress, ...word }) => word),
+      progress: entries.filter((word) => word.progress != null).map((word) => ({ ...word.progress, wordId: word.id })),
+      attempts: data.attempts,
+      sessions: [],
+      profile: [{ ...data.profile, id: "current" }],
+      settings: null
+    };
+  } else {
+    if (!isObject(data.stores)) throw new Error("Invalid backup file.");
+    stores = data.stores;
+    if (!BACKUP_STORES.every((name) => Array.isArray(stores[name]))) throw new Error("Invalid backup file.");
+  }
+
+  const storeNames = stores.settings === null ? BACKUP_STORES.filter((name) => name !== "settings") : BACKUP_STORES;
+  for (const name of storeNames) {
+    const records = stores[name];
+    if (!Array.isArray(records) || !records.every(isObject)) throw new Error("Invalid backup file.");
+    const key = name === "progress" ? "wordId" : "id";
+    const ids = records.map((record) => record[key]);
+    const optionalIds = data.schemaVersion === 1 && name === "attempts";
+    if (ids.some((id) => !(optionalIds && id === undefined) &&
+      !(typeof id === "string" && id.length > 0) &&
+      !(typeof id === "number" && Number.isFinite(id)))) throw new Error("Invalid backup file.");
+    const presentIds = ids.filter((id) => id !== undefined);
+    if (new Set(presentIds).size !== presentIds.length) throw new Error("Invalid backup file.");
+  }
+  if (!stores.words.every((word) => typeof word.id === "string" &&
+    typeof word.danish === "string" && word.danish.trim() &&
+    typeof word.english === "string" && word.english.trim() &&
+    typeof word.category === "string" && word.category.trim()) ||
+    !stores.progress.every((progress) => typeof progress.wordId === "string") ||
+    stores.profile.length !== 1 || stores.profile[0].id !== "current" ||
+    typeof stores.profile[0].name !== "string" ||
+    (stores.profile[0].daysActive !== undefined && (!Array.isArray(stores.profile[0].daysActive) ||
+      !stores.profile[0].daysActive.every((day) => typeof day === "string"))) ||
+    (stores.settings !== null && (stores.settings.length > 1 ||
+      stores.settings.some((setting) => setting.id !== "current" || !isObject(setting.value))))) {
+    throw new Error("Invalid backup file.");
+  }
+  return { stores, legacy: data.schemaVersion === 1 };
+}
+
+export async function restoreBackup(stores) {
+  const names = BACKUP_STORES.filter((name) => stores[name] !== null);
+  const db = await openDatabase();
+  const transaction = db.transaction(names, "readwrite");
+  const done = transactionDone(transaction);
+  try {
+    names.forEach((name) => {
+      const store = transaction.objectStore(name);
+      store.clear();
+      stores[name].forEach((record) => store.add(record));
+    });
+  } catch (error) {
+    transaction.abort();
+    await done.catch(() => {});
+    throw error;
+  }
+  await done;
 }
 
 export async function getValue(storeName, key) {

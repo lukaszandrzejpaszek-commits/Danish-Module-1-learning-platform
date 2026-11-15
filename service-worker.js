@@ -1,4 +1,4 @@
-const CACHE_NAME = "danish-module-1-v3";
+const CACHE_NAME = "danish-module-1-v20";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -8,8 +8,10 @@ const APP_ASSETS = [
   "./js/storage.js",
   "./js/game.js",
   "./js/speech.js",
+  "./js/i18n.js",
   "./js/app.js",
-  "./data/vocabulary.json"
+  "./data/vocabulary.json",
+  "./data/numbers.json"
 ];
 
 self.addEventListener("install", (event) => {

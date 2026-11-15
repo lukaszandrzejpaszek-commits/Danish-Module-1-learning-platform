@@ -16,14 +16,19 @@
             <div class="header-content">
                 <h1 class="app-title">Danish Module 1 Trainer</h1>
                 <div class="header-actions">
+                    <div class="language-switch" role="group" aria-label="Interface language">
+                        <button class="language-btn" id="language-dk" data-language="da" type="button" title="Danish" aria-label="Switch interface to Danish">
+                            <svg viewBox="0 0 37 28" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path fill="#c8102e" d="M0 0h37v28H0z"/><path fill="#fff" d="M12 0h4v28h-4zM0 12h37v4H0z"/></svg>
+                        </button>
+                        <button class="language-btn" id="language-en" data-language="en" type="button" title="English" aria-label="Switch interface to English">
+                            <svg viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path fill="#012169" d="M0 0h60v30H0z"/><path stroke="#fff" stroke-width="6" d="M0 0l60 30M60 0L0 30"/><path stroke="#c8102e" stroke-width="2" d="M0 0l60 30M60 0L0 30"/><path stroke="#fff" stroke-width="10" d="M30 0v30M0 15h60"/><path stroke="#c8102e" stroke-width="6" d="M30 0v30M0 15h60"/></svg>
+                        </button>
+                    </div>
                     <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">
                         ⚙️
                     </button>
                     <button id="profile-btn" class="icon-btn" title="Profile" aria-label="Profile">
                         👤
-                    </button>
-                    <button id="sync-btn" class="icon-btn" title="Sync Data" aria-label="Sync Data">
-                        ☁️
                     </button>
                 </div>
             </div>
@@ -429,6 +434,14 @@
                             </label>
                         </div>
                         <div class="settings-group">
+                            <label for="tts-engine">Speech voice:</label>
+                            <select id="tts-engine">
+                                <option value="piper">Piper — Danish neural voice</option>
+                                <option value="browser">Browser — installed voice</option>
+                            </select>
+                        </div>
+                        <p class="settings-hint">Piper loads its runtime online and downloads a 63 MB voice on first use; speech is generated on this device. Pitch control applies only to the browser voice.</p>
+                        <div class="settings-group">
                             <label for="tts-speed">TTS Speed:</label>
                             <input type="range" id="tts-speed" min="0.6" max="1.5" step="0.1" value="1">
                         </div>
@@ -451,6 +464,10 @@
                                 <input type="checkbox" id="enable-sound-effects" checked>
                                 Sound Effects
                             </label>
+                        </div>
+                        <div class="settings-group">
+                            <button class="btn btn-secondary" id="import-words" type="button">Import words</button>
+                            <input type="file" id="vocabulary-file" accept=".json,.csv,application/json,text/csv" hidden>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -493,30 +510,15 @@
                         </div>
                         <div class="profile-actions">
                             <button class="btn btn-secondary" id="edit-profile">Edit Profile</button>
-                            <button class="btn btn-secondary" id="export-data">Export Data</button>
+                            <button class="btn btn-secondary" id="export-data">Export backup</button>
+                            <button class="btn btn-secondary" id="restore-backup" type="button">Restore backup</button>
+                            <input type="file" id="backup-file" accept=".json,application/json" hidden>
                             <button class="btn btn-danger" id="reset-progress">Reset Progress</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Sync Status Modal -->
-            <div id="sync-modal" class="modal hidden">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>Cloud Sync</h2>
-                        <button class="close-btn" id="close-sync">✕</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="sync-status">
-                            <p id="sync-status-text">Checking sync status...</p>
-                            <div id="sync-progress" class="progress-bar">
-                                <div class="progress-fill" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </main>
 
         <!-- Footer -->

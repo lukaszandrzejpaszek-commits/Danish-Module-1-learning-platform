@@ -12,16 +12,34 @@ From the project folder run:
 python -m http.server 8000
 ```
 
-Then open <http://localhost:8000>. After the first successful load, the app shell and vocabulary list are cached for offline use. Speech playback uses the browser's Danish (`da-DK`) speech synthesis voice when available.
+Then open <http://localhost:8000>. After the first successful load, the app shell and vocabulary list are cached for offline use. Speech uses the Danish Piper neural voice by default; choose the installed browser voice in Settings if preferred.
+
+To run the topic-section checks, open <http://localhost:8000/tests/test_sections.html> while the server is running.
 
 ## Included features
 
 - Vocabulary grouped by grammar category, extracted from the supplied source PDF.
+- Noun topics such as family, food, animals, and days of the week are separate sections, without duplicating words or progress. The source list has six weekdays and no month names.
+- Danish cardinal numbers from 0 to 100, included as an additional practice category.
 - Multiple choice, Danish-to-English, typing, spelling/listening, flashcards, listening comprehension, mixed practice, and 60-second challenge.
 - Per-answer history, accuracy, streak, response time, XP, mastery, and review scheduling in IndexedDB.
 - Dashboard, section progress, weak-area recommendations, exam practice, search, favorites, and JSON backup/restore.
-- CSV import with `danish` and `english` columns; `category` and `gender` are optional.
+- Import JSON or CSV vocabulary in Settings. CSV files need `danish` and `english` columns; `category` and `gender` are optional.
+- Select Piper or browser speech in Settings. Piper generates speech locally with the `da_DK-talesyntese-medium` model.
+- Switch the interface between English and Danish using the UK and Danish flag buttons; the choice is saved on the device.
 - Responsive layout, dark mode, and local-first service-worker caching.
+
+## Speech voices
+
+Piper is the default voice. On first use, the browser downloads the Piper runtime files and the Danish medium voice model (about 63 MB); the model is cached in the browser and speech is generated on-device. An internet connection is needed to load the runtime and download the model. The selected browser voice is an alternative and depends on the operating system/browser. TTS pitch applies to browser speech; the speed setting applies to both.
+
+## Backups
+
+Use **Profile → Export backup** to save the profile, all vocabulary (including imported words), favorites and other word progress, answers, sessions, and settings. **Restore backup** replaces the current local data after confirmation; export a backup first if you want to keep it. Finish any active practice session before restoring.
+
+Older version 1 backups can also be restored, but they do not contain sessions or settings. Restoring one clears session history and keeps the current settings.
+
+On the next app start, missing standard number words are added automatically. If a restored backup has no words, the default vocabulary is loaded.
 
 ## Vocabulary source and regeneration
 
@@ -36,5 +54,5 @@ The extractor uses Python's standard library. It preserves noun gender where it 
 ## Notes
 
 - Progress and imported vocabulary remain in this browser's IndexedDB. Export a backup before clearing site data or changing browsers.
-- Cloud synchronization is not configured; the sync button explains local storage and backup options.
-- TTS quality and voice availability depend on the operating system/browser. An offline Piper voice model is not bundled.
+- The Piper model is not bundled in the repository. Review the [Danish voice model card](https://huggingface.co/rhasspy/piper-voices/tree/main/da/da_DK/talesyntese/medium) before redistributing it or using it commercially.
+- The [Danish number list](data/numbers.json) follows the [Danish numbers and time reference](https://www.settemilalingue.com/en/languages/da/grammar/numbers-and-time). Compound numbers place the unit before the tens and are written as one word.

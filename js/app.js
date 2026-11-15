@@ -1,18 +1,22 @@
-import { CATEGORIES, MODES, SETTINGS_DEFAULTS, MASTERED_AT } from "./config.js";
+import { CATEGORIES, CATEGORY_ICONS, MODES, SETTINGS_DEFAULTS, MASTERED_AT, TOPIC_WORDS, sectionForWord, wordInSection } from "./config.js";
 import {
   clearProgress,
+  createBackup,
   getAll,
   getSettings,
   openDatabase,
   putValue,
   recordAttempt,
+  restoreBackup,
   saveProfile,
   saveSession,
   saveSettings,
-  saveVocabulary
+  saveVocabulary,
+  validateBackup
 } from "./storage.js";
 import { isTypingCorrect, makeOptions, shuffle } from "./game.js";
-import { setSpeechPitch, setSpeechRate, speakDanish } from "./speech.js";
+import { setSpeechMode, setSpeechPitch, setSpeechRate, speakDanish } from "./speech.js";
+import { setInterfaceLanguage as applyInterfaceLanguage, setUiAttribute, setUiText, translateUiText } from "./i18n.js";
 
 const state = {
   words: [],
@@ -28,6 +32,7 @@ const state = {
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const main = $("#main-content");
+let currentView = "home";
 
 function showNotice(message, type = "info") {
   let notice = $("#app-notice");
@@ -39,7 +44,7 @@ function showNotice(message, type = "info") {
     main.before(notice);
   }
   notice.className = `app-notice ${type}`;
-  notice.textContent = message;
+  setUiText(notice, message);
   notice.hidden = false;
   window.clearTimeout(showNotice.timeout);
   showNotice.timeout = window.setTimeout(() => {
@@ -47,15 +52,53 @@ function showNotice(message, type = "info") {
   }, 6500);
 }
 
+function handleSpeechStatus(key, values = {}) {
+  const messages = {
+    voicePreparing: "Preparing the Danish Piper voice...",
+    voiceDownloading: `Downloading Piper voice: ${values.percent}% (${values.downloaded} / ${values.total} MB).`,
+    voiceCached: "Using the Piper voice saved in this browser.",
+    voiceGenerating: "Generating Danish speech...",
+    voicePlaying: "Playing Danish Piper speech.",
+    voiceCacheFailed: "Piper voice downloaded, but could not be cached. It may need to download again.",
+    voiceCacheUnavailable: "Browser caching is unavailable; Piper may need to download the voice again.",
+    voiceFallback: "Piper is unavailable; using the browser voice instead.",
+    voiceUnavailable: "Neither Piper nor browser speech could play audio."
+  };
+  if (messages[key]) showNotice(messages[key], key === "voiceUnavailable" ? "error" : "info");
+}
+
 function makeElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
-  if (text !== undefined) element.textContent = text;
+  if (text !== undefined) setUiText(element, text);
+  return element;
+}
+
+function makeContentElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  element.dataset.noTranslate = "true";
+  element.textContent = String(text ?? "");
   return element;
 }
 
 function categoryName(category) {
   return CATEGORIES[category] || category.replaceAll("_", " ");
+}
+
+function wordsInSection(category) {
+  return state.words.filter((word) => wordInSection(word, category));
+}
+
+function attemptsInSection(category) {
+  if (category !== "substantiver" && !Object.prototype.hasOwnProperty.call(TOPIC_WORDS, category)) {
+    return state.attempts.filter((attempt) => attempt.category === category);
+  }
+  const wordsById = new Map(state.words.map((word) => [word.id, word]));
+  return state.attempts.filter((attempt) => {
+    const word = wordsById.get(attempt.wordId);
+    return word ? sectionForWord(word) === category : category === "substantiver" && attempt.category === category;
+  });
 }
 
 function isMastered(progress) {
@@ -69,40 +112,27 @@ function addToolbar() {
   search.id = "global-search";
   search.className = "global-search";
   search.type = "search";
-  search.placeholder = "Search vocabulary";
-  search.setAttribute("aria-label", "Search vocabulary");
-
-  const importButton = makeElement("button", "btn btn-secondary import-button", "Import words");
-  importButton.type = "button";
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.id = "vocabulary-file";
-  fileInput.accept = ".json,.csv,application/json,text/csv";
-  fileInput.hidden = true;
+  setUiAttribute(search, "placeholder", "Search vocabulary");
+  setUiAttribute(search, "aria-label", "Search vocabulary");
 
   header.insertBefore(search, actions);
-  actions.prepend(importButton, fileInput);
   const results = makeElement("div", "search-results");
   results.id = "search-results";
   results.hidden = true;
   header.append(results);
 
-  importButton.addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", importVocabularyFile);
   search.addEventListener("input", () => renderSearch(search.value));
 
-  const starButton = makeElement("button", "btn btn-secondary favorites-button", "★ Favorites");
+  const starButton = makeElement("button", "icon-btn favorites-button", "★");
   starButton.type = "button";
+  setUiAttribute(starButton, "aria-label", "Favorites");
+  setUiAttribute(starButton, "title", "Favorites");
   actions.prepend(starButton);
   starButton.addEventListener("click", () => startSession({ filter: "favorites", mode: "mixed" }));
-
-  const saveButton = makeElement("button", "btn btn-secondary", "Export backup");
-  saveButton.type = "button";
-  actions.prepend(saveButton);
-  saveButton.addEventListener("click", exportBackup);
 }
 
 function showView(name) {
+  currentView = name;
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
   $$(".nav-btn").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   if (name === "progress") renderProgress();
@@ -111,6 +141,22 @@ function showView(name) {
   if (name === "exam-prep") renderExamPrep();
   if (name === "home") refreshDashboard();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function changeInterfaceLanguage(language) {
+  const previous = state.settings.uiLanguage || "en";
+  state.settings.uiLanguage = language === "da" ? "da" : "en";
+  try {
+    applyInterfaceLanguage(state.settings.uiLanguage);
+    await saveSettings(state.settings);
+    showView(currentView);
+    showNotice(state.settings.uiLanguage === "da" ? "Interface language set to Danish." : "Interface language set to English.", "success");
+  } catch (error) {
+    state.settings.uiLanguage = previous;
+    applyInterfaceLanguage(previous);
+    showView(currentView);
+    showNotice(`Language preference could not be saved: ${error.message}`, "error");
+  }
 }
 
 async function reloadData() {
@@ -125,13 +171,32 @@ async function reloadData() {
 }
 
 async function loadInitialVocabulary() {
-  if ((await getAll("words")).length) return;
   try {
+    const existingWords = await getAll("words");
+    const numbersResponse = await fetch("./data/numbers.json", { cache: "no-cache" });
+    if (!numbersResponse.ok) throw new Error(`Numbers request returned ${numbersResponse.status}.`);
+    const numbersData = await numbersResponse.json();
+    const numberWords = numbersData.categories.numbers.map((word) => ({
+      ...word,
+      source: numbersData.source
+    }));
+
+    if (existingWords.length) {
+      const existingIds = new Set(existingWords.map((word) => word.id));
+      const additions = numberWords.filter((word) => !existingIds.has(word.id));
+      if (additions.length) {
+        const count = await saveVocabulary({ categories: { numbers: additions } });
+        showNotice(`${count} Danish number words (0–100) added to your vocabulary.`, "success");
+      }
+      return;
+    }
+
     const response = await fetch("./data/vocabulary.json", { cache: "no-cache" });
     if (!response.ok) throw new Error(`Vocabulary request returned ${response.status}.`);
     const data = await response.json();
+    data.categories.numbers = numberWords;
     const count = await saveVocabulary(data);
-    showNotice(`${count} words from the supplied list are ready to study.`, "success");
+    showNotice(`${count} vocabulary words, including Danish numbers 0–100, are ready to study.`, "success");
   } catch (error) {
     showNotice(`Vocabulary could not be loaded: ${error.message} Use Import words to load a JSON or CSV vocabulary file.`, "error");
   }
@@ -147,35 +212,19 @@ async function importVocabularyFile(event) {
     } else {
       data = JSON.parse(await file.text());
     }
-    const backupWords = data.vocabulary;
-    const count = await saveVocabulary(backupWords ? { categories: backupWords } : data);
-    if (backupWords) {
-      for (const word of Object.values(backupWords).flat()) {
-        if (word.progress) await putValue("progress", { ...word.progress, wordId: word.id });
-      }
-      if (Array.isArray(data.attempts)) {
-        const db = await openDatabase();
-        const transaction = db.transaction("attempts", "readwrite");
-        const saved = new Promise((resolve, reject) => {
-          transaction.oncomplete = resolve;
-          transaction.onabort = transaction.onerror = () => reject(transaction.error || new Error("Could not restore the answer history."));
-        });
-        data.attempts.forEach(({ id, ...attempt }) => transaction.objectStore("attempts").add(attempt));
-        await saved;
-      }
-      if (data.profile) {
-        state.profile = { ...data.profile, id: "current" };
-        await saveProfile(state.profile);
-      }
+    if (data?.schemaVersion && (data.vocabulary || data.stores)) {
+      throw new Error("Use Restore backup in Profile to restore a backup file.");
     }
+    const count = await saveVocabulary(data);
     await reloadData();
-    if (backupWords) await hydrateProfile();
     refreshDashboard();
     renderLessons();
     updateProfile();
+    closeModal($("#settings-modal"));
     showNotice(`Imported ${count} vocabulary ${count === 1 ? "entry" : "entries"}.`, "success");
   } catch (error) {
-    showNotice(`Import failed: ${error.message}`, "error");
+    closeModal($("#settings-modal"));
+    showNotice(`Import failed: ${translateUiText(error.message)}`, "error");
   } finally {
     event.target.value = "";
   }
@@ -244,14 +293,12 @@ function bindNavigation() {
   $$(".nav-btn").forEach((button) => {
     button.addEventListener("click", () => showView(button.dataset.view));
   });
+  $("#language-dk").addEventListener("click", () => changeInterfaceLanguage("da"));
+  $("#language-en").addEventListener("click", () => changeInterfaceLanguage("en"));
   $("#settings-btn").addEventListener("click", () => openModal("settings-modal"));
   $("#profile-btn").addEventListener("click", () => {
     updateProfile();
     openModal("profile-modal");
-  });
-  $("#sync-btn").addEventListener("click", () => {
-    $("#sync-status-text").textContent = "Your vocabulary and progress are stored on this device. Use Export backup to move them to another device.";
-    openModal("sync-modal");
   });
   $$(".close-btn").forEach((button) => button.addEventListener("click", () => closeModal(button.closest(".modal"))));
   $$(".modal").forEach((modal) => modal.addEventListener("click", (event) => {
@@ -270,6 +317,10 @@ function bindNavigation() {
   });
   $("#edit-profile").addEventListener("click", editProfileName);
   $("#export-data").addEventListener("click", exportBackup);
+  $("#restore-backup").addEventListener("click", () => $("#backup-file").click());
+  $("#backup-file").addEventListener("change", restoreBackupFile);
+  $("#import-words").addEventListener("click", () => $("#vocabulary-file").click());
+  $("#vocabulary-file").addEventListener("change", importVocabularyFile);
   $("#reset-progress").addEventListener("click", resetLearningProgress);
   $("#practice-weak-areas").addEventListener("click", () => startSession({ filter: "failed", mode: "mixed" }));
   $("#exit-session").addEventListener("click", finishSession);
@@ -305,9 +356,9 @@ function renderPracticeModes() {
   definitions.forEach(([id, title, description, mode]) => {
     const card = document.getElementById(id);
     if (!card) return;
-    card.querySelector("h3").textContent = title;
-    card.querySelector("p").textContent = description;
-    card.querySelector(".btn").textContent = "Start";
+    setUiText(card.querySelector("h3"), title);
+    setUiText(card.querySelector("p"), description);
+    setUiText(card.querySelector(".btn"), "Start");
     card.querySelector(".btn").addEventListener("click", () => startSession({
       mode,
       filter: $("#practice-filter")?.value || "all",
@@ -329,8 +380,8 @@ function renderPracticeModes() {
       card.append(button);
       grid.append(card);
     }
-    card.querySelector("h3").textContent = title;
-    card.querySelector("p").textContent = description;
+    setUiText(card.querySelector("h3"), title);
+    setUiText(card.querySelector("p"), description);
     card.querySelector(".btn").addEventListener("click", () => startSession({
       mode,
       filter: $("#practice-filter")?.value || "all",
@@ -343,7 +394,7 @@ function renderPracticeModes() {
     controls.id = "training-controls";
     const filter = document.createElement("select");
     filter.id = "practice-filter";
-    filter.setAttribute("aria-label", "Choose vocabulary to practice");
+    setUiAttribute(filter, "aria-label", "Choose vocabulary to practice");
     [
       ["all", "All words"],
       ["new", "New words"],
@@ -354,20 +405,20 @@ function renderPracticeModes() {
     ].forEach(([value, label]) => {
       const option = document.createElement("option");
       option.value = value;
-      option.textContent = label;
+      setUiText(option, label);
       filter.append(option);
     });
     const category = document.createElement("select");
     category.id = "practice-category";
-    category.setAttribute("aria-label", "Limit practice to a section");
+    setUiAttribute(category, "aria-label", "Limit practice to a section");
     const all = document.createElement("option");
     all.value = "";
-    all.textContent = "All sections";
+    setUiText(all, "All sections");
     category.append(all);
     Object.entries(CATEGORIES).forEach(([value, label]) => {
       const option = document.createElement("option");
       option.value = value;
-      option.textContent = label;
+      setUiText(option, label);
       category.append(option);
     });
     controls.append(filter, category);
@@ -392,10 +443,13 @@ function renderDashboardExtras() {
 
 function applySettings() {
   document.body.dataset.theme = state.settings.theme || "light";
+  applyInterfaceLanguage(state.settings.uiLanguage || "en");
   $("#dark-mode").checked = state.settings.theme === "dark";
+  $("#tts-engine").value = state.settings.speechEngine === "browser" ? "browser" : "piper";
   $("#tts-speed").value = String(state.settings.speechRate || 1);
   $("#tts-pitch").value = String(state.settings.speechPitch || 1);
   $("#daily-goal").value = String(state.settings.dailyGoal || SETTINGS_DEFAULTS.dailyGoal);
+  setSpeechMode(state.settings.speechEngine);
   setSpeechRate(state.settings.speechRate || 1);
   setSpeechPitch(state.settings.speechPitch || 1);
   document.documentElement.style.setProperty("--daily-goal", String(state.settings.dailyGoal || SETTINGS_DEFAULTS.dailyGoal));
@@ -405,6 +459,7 @@ async function saveSettingsFromForm() {
   state.settings = {
     ...state.settings,
     theme: $("#dark-mode").checked ? "dark" : "light",
+    speechEngine: $("#tts-engine").value === "browser" ? "browser" : "piper",
     speechRate: Number($("#tts-speed").value),
     speechPitch: Number($("#tts-pitch").value),
     dailyGoal: Math.min(200, Math.max(5, Number($("#daily-goal").value) || SETTINGS_DEFAULTS.dailyGoal))
@@ -438,23 +493,49 @@ async function resetLearningProgress() {
   showNotice("Learning progress was reset.", "success");
 }
 
-function exportBackup() {
-  const payload = {
-    schemaVersion: 1,
-    exportedAt: new Date().toISOString(),
-    profile: state.profile,
-    vocabulary: Object.fromEntries(
-      Object.keys(CATEGORIES).map((category) => [
-        category,
-        state.words.filter((word) => word.category === category).map((word) => ({
-          ...word,
-          progress: state.progress.get(word.id) || null
-        }))
-      ])
-    ),
-    attempts: state.attempts
-  };
-  downloadFile("danish-trainer-backup.json", JSON.stringify(payload, null, 2), "application/json");
+async function exportBackup() {
+  try {
+    const payload = await createBackup();
+    downloadFile("danish-trainer-backup.json", JSON.stringify(payload, null, 2), "application/json");
+  } catch (error) {
+    closeModal($("#profile-modal"));
+    showNotice(`Backup export failed: ${error.message}`, "error");
+  }
+}
+
+async function restoreBackupFile(event) {
+  const [file] = event.target.files || [];
+  if (!file) return;
+  try {
+    const backup = validateBackup(JSON.parse(await file.text()));
+    if (state.session) throw new Error("Finish the current practice session before restoring a backup.");
+    const confirmation = backup.legacy
+      ? "Replace your current profile, words and progress with this backup? Older backups do not contain sessions or settings. Session history will be cleared and current settings kept."
+      : "Replace your current profile, words, progress, history and settings with this backup?";
+    if (!window.confirm(translateUiText(confirmation))) return;
+    await restoreBackup(backup.stores);
+    await reloadData();
+    [state.profile] = await getAll("profile");
+    state.sessions = await getAll("sessions");
+    state.settings = { ...SETTINGS_DEFAULTS, ...(await getSettings()) };
+    applySettings();
+    $("#global-search").value = "";
+    $("#search-results").hidden = true;
+    refreshDashboard();
+    renderLessons();
+    renderExamPrep();
+    updateProfile();
+    closeModal($("#profile-modal"));
+    showView("home");
+    showNotice(backup.legacy
+      ? "Backup restored. Older backups do not include session history or settings."
+      : "Backup restored successfully.", "success");
+  } catch (error) {
+    closeModal($("#profile-modal"));
+    showNotice(`Backup restore failed: ${translateUiText(error.message)}`, "error");
+  } finally {
+    event.target.value = "";
+  }
 }
 
 function downloadFile(filename, content, mimeType) {
@@ -474,7 +555,7 @@ function renderSearch(query) {
     return;
   }
   const matches = state.words
-    .filter((word) => `${word.danish} ${word.english} ${word.category} ${word.exampleDanish || ""}`.toLocaleLowerCase("da-DK").includes(term))
+    .filter((word) => `${word.danish} ${word.english} ${word.category} ${categoryName(sectionForWord(word))} ${word.exampleDanish || ""}`.toLocaleLowerCase("da-DK").includes(term))
     .slice(0, 12);
   if (!matches.length) {
     results.append(makeElement("p", "empty-state", "No matching words."));
@@ -484,14 +565,14 @@ function renderSearch(query) {
       const row = makeElement("div", "search-result");
       const details = makeElement("div");
       details.append(
-        makeElement("strong", "", word.danish),
-        makeElement("span", "", word.english),
-        makeElement("small", "", `${categoryName(word.category)} · ${progress?.mastery || 0}% mastered`)
+        makeContentElement("strong", "", word.danish),
+        makeContentElement("span", "", word.english),
+        makeElement("small", "", `${categoryName(sectionForWord(word))} · ${progress?.mastery || 0}% mastered`)
       );
-      if (word.exampleDanish) details.append(makeElement("small", "search-example", word.exampleDanish));
+      if (word.exampleDanish) details.append(makeContentElement("small", "search-example", word.exampleDanish));
       const favorite = makeElement("button", "favorite-toggle", progress?.favorite ? "★" : "☆");
       favorite.type = "button";
-      favorite.setAttribute("aria-label", progress?.favorite ? "Remove favorite" : "Add favorite");
+      setUiAttribute(favorite, "aria-label", progress?.favorite ? "Remove favorite" : "Add favorite");
       favorite.addEventListener("click", async () => {
         await toggleFavorite(word);
         renderSearch(query);
@@ -519,7 +600,7 @@ async function toggleFavorite(word) {
 }
 
 function filterWords(filter, category) {
-  let words = state.words.filter((word) => !category || word.category === category);
+  let words = category ? wordsInSection(category) : [...state.words];
   if (filter === "due") {
     const now = Date.now();
     words = words.filter((word) => {
@@ -605,7 +686,7 @@ function renderQuestion() {
   const header = makeElement("div", "session-header");
   const title = makeElement("div");
   title.append(
-    makeElement("p", "eyebrow", session.mode === "speed" ? "60-second challenge" : categoryName(word.category)),
+    makeElement("p", "eyebrow", session.mode === "speed" ? "60-second challenge" : categoryName(sectionForWord(word))),
     makeElement("h2", "", session.mode === "mixed" ? "Mixed practice" : MODES[session.mode] || "Practice")
   );
   const status = makeElement("div", "session-info");
@@ -634,22 +715,24 @@ function renderQuestion() {
 
 function renderPrompt(card, word, mode, session) {
   const ask = (text) => card.append(makeElement("p", "question-label", text));
-  const prompt = (text) => card.append(makeElement("h3", "question-prompt", text));
+  const prompt = (text, isVocabulary = false) => card.append(
+    isVocabulary ? makeContentElement("h3", "question-prompt", text) : makeElement("h3", "question-prompt", text)
+  );
   const addSpeech = (text, label = "🔊 Hear Danish") => {
     const button = makeElement("button", "btn btn-secondary audio-button", label);
     button.type = "button";
-    button.addEventListener("click", () => speakDanish(text, button.dataset.slow === "true").catch((error) => showNotice(error.message, "error")));
+    button.addEventListener("click", () => speakDanish(text, button.dataset.slow === "true", handleSpeechStatus).catch((error) => showNotice(error.message, "error")));
     card.append(button);
     return button;
   };
 
   if (mode === "multipleChoice") {
     ask("Choose the Danish translation");
-    prompt(word.english);
+    prompt(word.english, true);
     renderChoices(card, makeOptions(word, state.words, "danish"), word.danish, word, session);
   } else if (mode === "translation") {
     ask("Choose the English translation");
-    prompt(word.danish);
+    prompt(word.danish, true);
     addSpeech(word.danish);
     renderChoices(card, makeOptions(word, state.words, "english"), word.english, word, session);
   } else if (mode === "listening") {
@@ -663,13 +746,13 @@ function renderPrompt(card, word, mode, session) {
     if (mode === "typing") {
       const direction = makeElement("button", "btn btn-small direction-toggle", reverseTyping ? "Danish → English" : "English → Danish");
       direction.type = "button";
-      direction.setAttribute("aria-label", "Switch typing direction");
+      setUiAttribute(direction, "aria-label", "Switch typing direction");
       direction.addEventListener("click", () => {
         session.typingDirection = reverseTyping ? "danish" : "english";
         renderQuestion();
       });
       card.append(direction);
-      prompt(reverseTyping ? word.danish : word.english);
+      prompt(reverseTyping ? word.danish : word.english, true);
     }
     else {
       prompt("Listen carefully");
@@ -683,8 +766,8 @@ function renderPrompt(card, word, mode, session) {
     input.autocomplete = "off";
     input.autocapitalize = "none";
     input.spellcheck = false;
-    input.placeholder = "Type your answer";
-    input.setAttribute("aria-label", "Your answer");
+    setUiAttribute(input, "placeholder", "Type your answer");
+    setUiAttribute(input, "aria-label", "Your answer");
     const submit = makeElement("button", "btn btn-primary", "Check answer");
     submit.type = "submit";
     form.append(input, submit);
@@ -702,16 +785,16 @@ function renderPrompt(card, word, mode, session) {
     input.focus();
   } else if (mode === "flashcards") {
     ask("Flashcard");
-    prompt(word.danish);
+    prompt(word.danish, true);
     addSpeech(word.danish);
     const reveal = makeElement("button", "btn btn-primary", "Reveal translation");
     reveal.type = "button";
     reveal.addEventListener("click", () => {
       reveal.remove();
-      card.append(makeElement("p", "flashcard-translation", word.english));
+      card.append(makeContentElement("p", "flashcard-translation", word.english));
       if (word.exampleDanish) {
-        card.append(makeElement("p", "example-sentence", word.exampleDanish));
-        if (word.exampleEnglish) card.append(makeElement("p", "example-translation", word.exampleEnglish));
+        card.append(makeContentElement("p", "example-sentence", word.exampleDanish));
+        if (word.exampleEnglish) card.append(makeContentElement("p", "example-translation", word.exampleEnglish));
       }
       const ratings = makeElement("div", "rating-buttons");
       [
@@ -729,7 +812,7 @@ function renderPrompt(card, word, mode, session) {
     card.append(reveal);
   } else {
     ask("Complete the Danish translation");
-    prompt(word.english);
+    prompt(word.english, true);
     renderChoices(card, makeOptions(word, state.words, "danish"), word.danish, word, session);
   }
 }
@@ -737,7 +820,7 @@ function renderPrompt(card, word, mode, session) {
 function renderChoices(card, options, expected, word, session) {
   const list = makeElement("div", "options-grid");
   options.forEach((option) => {
-    const button = makeElement("button", "option-button", option);
+    const button = makeContentElement("button", "option-button", option);
     button.type = "button";
     button.addEventListener("click", () => {
       if (session.mode === "speed") submitAnswer(word, option === expected, option, true);
@@ -785,15 +868,15 @@ async function submitAnswer(word, correct, answer, advanceImmediately = false) {
   const xpEarned = correct ? [1, 1, 3, 5, 5][Math.min(4, Math.max(0, word.difficulty - 1))] : 0;
   feedback.append(
     makeElement("strong", "", correct ? `Correct! +${xpEarned} XP` : "Not quite"),
-    makeElement("span", "", `${word.danish} — ${word.english}`)
+    makeContentElement("span", "", `${word.danish} — ${word.english}`)
   );
   if (word.exampleDanish) {
-    feedback.append(makeElement("span", "example-sentence", word.exampleDanish));
-    if (word.exampleEnglish) feedback.append(makeElement("span", "example-translation", word.exampleEnglish));
+    feedback.append(makeContentElement("span", "example-sentence", word.exampleDanish));
+    if (word.exampleEnglish) feedback.append(makeContentElement("span", "example-translation", word.exampleEnglish));
   }
   const listen = makeElement("button", "btn btn-small", "🔊 Hear answer");
   listen.type = "button";
-  listen.addEventListener("click", () => speakDanish(word.danish).catch((error) => showNotice(error.message, "error")));
+  listen.addEventListener("click", () => speakDanish(word.danish, false, handleSpeechStatus).catch((error) => showNotice(error.message, "error")));
   feedback.append(listen);
   card.append(feedback);
   $$(".option-button", card).forEach((button) => {
@@ -823,7 +906,7 @@ function startSpeedTimer() {
       finishSession();
     } else {
       const info = $(".session-info span");
-      if (info) info.textContent = `${state.session.secondsRemaining}s · ${state.session.correct} correct`;
+      if (info) setUiText(info, `${state.session.secondsRemaining}s · ${state.session.correct} correct`);
     }
   }, 1000);
 }
@@ -868,10 +951,11 @@ async function finishSession() {
   );
   const categoryScores = new Map();
   session.results.forEach(({ word, correct }) => {
-    const score = categoryScores.get(word.category) || { total: 0, correct: 0 };
+    const category = sectionForWord(word);
+    const score = categoryScores.get(category) || { total: 0, correct: 0 };
     score.total += 1;
     score.correct += correct ? 1 : 0;
-    categoryScores.set(word.category, score);
+    categoryScores.set(category, score);
   });
   if (categoryScores.size) {
     summary.append(makeElement("h3", "", "Review these categories"));
@@ -903,15 +987,20 @@ function renderLessons() {
   if (!list) return;
   list.replaceChildren();
   Object.entries(CATEGORIES).forEach(([category, label]) => {
-    const words = state.words.filter((word) => word.category === category);
+    const words = wordsInSection(category);
     if (!words.length) return;
     const learned = words.filter((word) => isMastered(state.progress.get(word.id))).length;
+    const percentage = Math.round((learned / words.length) * 100);
     const card = makeElement("article", "lesson-card");
     const heading = makeElement("div");
-    heading.append(makeElement("h3", "", label), makeElement("p", "", `${words.length} words · ${learned} mastered`));
+    const title = makeElement("h3", "lesson-title");
+    const icon = makeElement("span", "lesson-icon", CATEGORY_ICONS[category] || "📘");
+    icon.setAttribute("aria-hidden", "true");
+    title.append(icon, makeElement("span", "", label));
+    heading.append(title, makeElement("p", "", `${learned} of ${words.length} words mastered (${percentage}%)`));
     const bar = makeElement("div", "category-progress");
     const fill = makeElement("span");
-    fill.style.width = `${Math.round((learned / words.length) * 100)}%`;
+    fill.style.width = `${percentage}%`;
     bar.append(fill);
     const button = makeElement("button", "btn btn-primary", "Practice this section");
     button.type = "button";
@@ -944,20 +1033,20 @@ function refreshDashboard() {
   };
   Object.entries(values).forEach(([selector, value]) => {
     const element = $(selector);
-    if (element) element.textContent = String(value);
+    if (element) setUiText(element, String(value));
   });
-  $("#mastered-words").textContent = String(mastered);
-  $("#weekly-streak").textContent = String(weeklyStreak);
-  $("#difficult-words").textContent = String(difficult);
+  setUiText($("#mastered-words"), String(mastered));
+  setUiText($("#weekly-streak"), String(weeklyStreak));
+  setUiText($("#difficult-words"), String(difficult));
   $("#daily-progress").style.width = `${Math.min(100, Math.round((todayCount / goal) * 100))}%`;
-  $("#welcome-message").textContent = words.length
+  setUiText($("#welcome-message"), words.length
     ? `${todayCount} of ${goal} answers toward today's goal · ${difficult} words to revisit`
-    : "Import the vocabulary PDF list to start learning.";
-  $("#continue-lesson-text").textContent = `${Math.max(0, words.length - studied)} new words waiting`;
-  $("#total-study-time").textContent = formatDuration(attempts.reduce((sum, item) => sum + (item.responseTime || 0), 0));
-  $("#sessions-completed").textContent = String((state.sessions || []).length);
-  $("#avg-accuracy").textContent = `${accuracy}%`;
-  $("#retention-rate").textContent = `${mastered} words mastered`;
+    : "Import the vocabulary PDF list to start learning.");
+  setUiText($("#continue-lesson-text"), `${Math.max(0, words.length - studied)} new words waiting`);
+  setUiText($("#total-study-time"), formatDuration(attempts.reduce((sum, item) => sum + (item.responseTime || 0), 0)));
+  setUiText($("#sessions-completed"), String((state.sessions || []).length));
+  setUiText($("#avg-accuracy"), `${accuracy}%`);
+  setUiText($("#retention-rate"), `${mastered} words mastered`);
   renderCategoryProgress();
 }
 
@@ -1001,14 +1090,15 @@ function renderCategoryProgress() {
   }
   section.replaceChildren(makeElement("h3", "", "Progress by section"));
   Object.entries(CATEGORIES).forEach(([category, label]) => {
-    const words = state.words.filter((word) => word.category === category);
+    const words = wordsInSection(category);
     if (!words.length) return;
     const mastered = words.filter((word) => isMastered(state.progress.get(word.id))).length;
+    const percentage = Math.round((mastered / words.length) * 100);
     const row = makeElement("div", "category-progress-row");
-    row.append(makeElement("span", "", label), makeElement("small", "", `${mastered} / ${words.length}`));
+    row.append(makeElement("span", "", label), makeElement("small", "", `${mastered} / ${words.length} (${percentage}%)`));
     const bar = makeElement("div", "category-progress");
     const fill = makeElement("span");
-    fill.style.width = `${Math.round((mastered / words.length) * 100)}%`;
+    fill.style.width = `${percentage}%`;
     bar.append(fill);
     row.append(bar);
     section.append(row);
@@ -1024,7 +1114,7 @@ function renderCategoryProgress() {
   const weeklyAttempts = state.attempts.filter((attempt) => new Date(attempt.createdAt).getTime() >= weekStart);
   const wordsLearned = new Set(weeklyAttempts.map((attempt) => attempt.wordId)).size;
   const scores = Object.entries(CATEGORIES).map(([category, label]) => {
-    const categoryAttempts = state.attempts.filter((attempt) => attempt.category === category);
+    const categoryAttempts = attemptsInSection(category);
     return {
       label,
       accuracy: categoryAttempts.length
@@ -1032,7 +1122,7 @@ function renderCategoryProgress() {
         : null
     };
   }).filter((score) => score.accuracy !== null).sort((a, b) => a.accuracy - b.accuracy);
-  coach.append(makeElement("p", "", `You practiced ${wordsLearned} distinct words in the last 7 days.`));
+  coach.append(makeElement("p", "", `You practiced ${wordsLearned} distinct ${wordsLearned === 1 ? "word" : "words"} in the last 7 days.`));
   if (scores.length > 1) {
     coach.append(makeElement("p", "", `Strongest section: ${scores[scores.length - 1].label}. Focus next on ${scores[0].label}.`));
   } else if (scores.length === 1) {
@@ -1051,8 +1141,8 @@ function renderWeakAreas() {
   if (!list) return;
   list.replaceChildren();
   const categoryScores = Object.entries(CATEGORIES).map(([category, label]) => {
-    const words = state.words.filter((word) => word.category === category);
-    const categoryAttempts = state.attempts.filter((attempt) => attempt.category === category);
+    const words = wordsInSection(category);
+    const categoryAttempts = attemptsInSection(category);
     const accuracy = categoryAttempts.length
       ? Math.round((categoryAttempts.filter((attempt) => attempt.correct).length / categoryAttempts.length) * 100)
       : null;
@@ -1090,10 +1180,14 @@ function renderWeakAreas() {
     list.append(makeElement("h3", "weak-words-heading", "Words to revisit"));
     weakWords.forEach(({ word, progress }) => {
       const item = makeElement("div", "weak-word-row");
-      item.append(makeElement("strong", "", word.danish), makeElement("span", "", `${word.english} · ${progress.wrong} missed · ${progress.mastery}%`));
+      item.append(
+        makeContentElement("strong", "", word.danish),
+        makeContentElement("span", "", word.english),
+        makeElement("small", "", ` · ${progress.wrong} missed · ${progress.mastery}%`)
+      );
       const favorite = makeElement("button", "favorite-toggle", progress.favorite ? "★" : "☆");
       favorite.type = "button";
-      favorite.setAttribute("aria-label", "Toggle favorite");
+      setUiAttribute(favorite, "aria-label", "Toggle favorite");
       favorite.addEventListener("click", () => toggleFavorite(word));
       item.append(favorite);
       list.append(item);
@@ -1111,7 +1205,12 @@ function renderWeakAreas() {
     list.append(makeElement("h3", "weak-words-heading", "Words taking the longest"));
     slowWords.forEach(({ word, progress }) => {
       const average = Math.round(progress.responseTimeTotal / progress.attempts);
-      list.append(makeElement("div", "weak-word-row", `${word.danish} — ${word.english} · ${average}s average`));
+      const row = makeElement("div", "weak-word-row");
+      row.append(
+        makeContentElement("span", "", `${word.danish} — ${word.english}`),
+        makeElement("small", "", ` · ${average}s average`)
+      );
+      list.append(row);
     });
   }
   const forgotten = state.words
@@ -1128,17 +1227,17 @@ function renderExamPrep() {
   const mastered = [...state.progress.values()].filter(isMastered).length;
   const readiness = state.words.length ? Math.round((mastered / state.words.length) * 100) : 0;
   $("#readiness-bar").style.width = `${readiness}%`;
-  $("#readiness-text").textContent = `${readiness}% ready · ${mastered} of ${state.words.length} words mastered`;
-  $("#vocab-coverage").textContent = `${mastered} of ${state.words.length} words mastered`;
+  setUiText($("#readiness-text"), `${readiness}% ready · ${mastered} of ${state.words.length} words mastered`);
+  setUiText($("#vocab-coverage"), `${mastered} of ${state.words.length} words mastered`);
   const resource = $("#resource-mock-exam");
   if (!$("#exam-question-count")) {
     const selector = document.createElement("select");
     selector.id = "exam-question-count";
-    selector.setAttribute("aria-label", "Exam question count");
+    setUiAttribute(selector, "aria-label", "Exam question count");
     [20, 30, 50].forEach((count) => {
       const option = document.createElement("option");
       option.value = String(count);
-      option.textContent = `${count} questions`;
+      setUiText(option, `${count} questions`);
       selector.append(option);
     });
     const start = makeElement("button", "btn btn-primary", "Start mock exam");
@@ -1168,7 +1267,7 @@ function renderChart(canvas, type) {
   if (!values.length) {
     context.fillStyle = getComputedStyle(document.body).getPropertyValue("--muted");
     context.font = "14px sans-serif";
-    context.fillText("Complete practice sessions to build your chart.", padding, height / 2);
+    context.fillText(translateUiText("Complete practice sessions to build your chart."), padding, height / 2);
     return;
   }
   const max = Math.max(1, ...values.map((item) => item.value));
@@ -1186,7 +1285,7 @@ function renderChart(canvas, type) {
     context.fillRect(x, baseline - barHeight, slot * 0.62, barHeight);
     context.fillStyle = getComputedStyle(document.body).getPropertyValue("--muted");
     context.font = "10px sans-serif";
-    context.fillText(item.label, x - 1, baseline + 14, slot + 8);
+    context.fillText(translateUiText(item.label).slice(0, 8), x - 1, baseline + 14, slot + 8);
   });
 }
 
@@ -1197,7 +1296,7 @@ function dailyCounts() {
     date.setDate(date.getDate() - offset);
     const key = date.toISOString().slice(0, 10);
     days.push({
-      label: date.toLocaleDateString(undefined, { weekday: "short" }),
+      label: date.toLocaleDateString(document.documentElement.lang === "da" ? "da-DK" : "en-US", { weekday: "short" }),
       value: state.attempts.filter((attempt) => attempt.createdAt?.slice(0, 10) === key).length
     });
   }
@@ -1207,8 +1306,8 @@ function dailyCounts() {
 function categoryCounts() {
   return Object.entries(CATEGORIES)
     .map(([category, label]) => ({
-      label: label.slice(0, 8),
-      value: state.attempts.filter((attempt) => attempt.category === category).length
+      label,
+      value: attemptsInSection(category).length
     }))
     .filter((item) => item.value);
 }
@@ -1224,8 +1323,15 @@ function updateProfile() {
     [1200, "Module 1 Master"]
   ];
   const level = [...levels].reverse().find(([xp]) => (profile.xp || 0) >= xp)?.[1] || "Beginner";
-  $("#profile-name").textContent = profile.name || "Learner";
-  $("#profile-level").textContent = level;
+  const profileName = $("#profile-name");
+  if (!profile.name || profile.name === "Learner" || profile.name === "Student") {
+    delete profileName.dataset.noTranslate;
+    setUiText(profileName, "Learner");
+  } else {
+    profileName.dataset.noTranslate = "true";
+    profileName.textContent = profile.name;
+  }
+  setUiText($("#profile-level"), level);
   $("#profile-xp").textContent = String(profile.xp || 0);
   $("#profile-badges").textContent = String(achievementCount());
   $("#profile-days").textContent = String(profile.daysActive?.length || 0);
@@ -1245,7 +1351,7 @@ function achievementCount() {
 
 function hasCategoryMaster() {
   return ["substantiver", "verber", "adjektiver"].some((category) => {
-    const words = state.words.filter((word) => word.category === category);
+    const words = wordsInSection(category);
     return words.length >= 50 && words.every((word) => isMastered(state.progress.get(word.id)));
   });
 }

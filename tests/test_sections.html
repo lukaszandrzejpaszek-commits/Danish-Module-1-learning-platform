@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Section tests</title></head>
+<body>
+<pre id="result">Running section tests...</pre>
+<script type="module">
+  import { CATEGORIES, TOPIC_WORDS, wordInSection } from "../js/config.js";
+
+  function assert(condition, message) {
+    if (!condition) throw new Error(message);
+  }
+
+  try {
+    const response = await fetch("../data/vocabulary.json");
+    if (!response.ok) throw new Error(`Vocabulary request failed: ${response.status}`);
+    const data = await response.json();
+    const nouns = data.categories.substantiver.map((word) => ({ ...word, category: "substantiver" }));
+    const weekdays = nouns.filter((word) => wordInSection(word, "weekdays"));
+    const food = nouns.filter((word) => wordInSection(word, "food"));
+    assert(weekdays.length === 6 && weekdays.some((word) => word.danish === "søndag"), "Expected the six source weekdays");
+    assert(food.length === 62 && ["æble", "brød", "gulerod"].every((name) => food.some((word) => word.danish === name)), "Expected the source food words");
+    const sourceWords = new Set(nouns.map((word) => word.danish.trim().normalize("NFC").toLocaleLowerCase("da-DK")));
+    const assigned = new Set();
+    for (const [section, words] of Object.entries(TOPIC_WORDS)) {
+      assert(CATEGORIES[section], `Missing section: ${section}`);
+      for (const word of words) {
+        assert(sourceWords.has(word), `${section}: ${word} is absent from the source nouns`);
+        assert(!assigned.has(word), `${word} is assigned to multiple topics`);
+        assigned.add(word);
+      }
+    }
+    const examples = {
+      family: "søster", professions: "lærer", animals: "hund", home: "sofa", clothing: "jakke",
+      health: "hånd", transport: "tog", places: "butik", education: "ordbog", nature: "skov",
+      weather: "sne", time: "uge", drinks: "kaffe", leisure: "tennis", nationalities: "dansker"
+    };
+    for (const [section, name] of Object.entries(examples)) {
+      const word = nouns.find((entry) => entry.danish === name);
+      assert(word && wordInSection(word, section) && !wordInSection(word, "substantiver"), `${name} must move to ${section}`);
+    }
+    assert(nouns.every((word) => Object.keys(CATEGORIES).filter((section) => wordInSection(word, section)).length === 1), "Each noun must belong to exactly one section");
+    assert(wordInSection(nouns.find((word) => word.danish === "kylling"), "food"), "Ambiguous food words must remain in Food");
+    assert(wordInSection({ danish: "  SØNDAG ", category: "substantiver" }, "weekdays"), "Imported nouns should match without case or whitespace sensitivity");
+    assert(!wordInSection({ danish: "søndag", category: "verber" }, "weekdays"), "Topics must not include non-nouns");
+    assert(!wordInSection({ danish: "cykel", category: "substantiver" }, "food"), "Unrelated nouns must not enter food");
+    document.querySelector("#result").textContent = "PASS";
+  } catch (error) {
+    document.querySelector("#result").textContent = `FAIL: ${error.message}`;
+    throw error;
+  }
+</script>
+</body>
+</html>

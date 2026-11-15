@@ -30,6 +30,19 @@ class VocabularyDataTests(unittest.TestCase):
         self.assertTrue(any("æ" in entry["danish"] or "ø" in entry["danish"] or "å" in entry["danish"] for entry in entries))
         self.assertFalse(any("\ufffd" in entry["danish"] or "\ufffd" in entry["english"] for entry in entries))
 
+    def test_number_json_covers_zero_to_one_hundred(self):
+        data = json.loads((ROOT / "data" / "numbers.json").read_text(encoding="utf-8"))
+        entries = data["categories"]["numbers"]
+
+        self.assertEqual(len(entries), 101)
+        self.assertEqual([entry["number"] for entry in entries], list(range(101)))
+        self.assertEqual(len({entry["id"] for entry in entries}), 101)
+        self.assertEqual(entries[21]["danish"], "enogtyve")
+        self.assertEqual(entries[70]["danish"], "halvfjerds")
+        self.assertEqual(entries[99]["danish"], "nioghalvfems")
+        self.assertEqual(entries[100]["danish"], "hundrede")
+        self.assertEqual(data["source"], "https://www.settemilalingue.com/en/languages/da/grammar/numbers-and-time")
+
     def test_heading_normalization_handles_danish_letters(self):
         self.assertEqual(normalize_heading("PRÆPOSITIONER"), "PRAEPOSITIONER")
         self.assertEqual(normalize_heading("SPØRGENDE HV- ORD"), "SPORGENDE HV- ORD")

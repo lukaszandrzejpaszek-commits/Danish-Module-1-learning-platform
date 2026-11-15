@@ -105,6 +105,33 @@ a:focus-visible {
   color: var(--text);
 }
 
+.language-switch {
+  display: flex;
+  gap: 4px;
+}
+
+.language-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.language-btn svg {
+  display: block;
+  width: 25px;
+  height: 16px;
+}
+
+.language-btn.active {
+  border-color: var(--red);
+  background: var(--surface-soft);
+}
+
 .global-search {
   width: min(250px, 24vw);
   min-width: 140px;
@@ -411,8 +438,39 @@ a:focus-visible {
   margin: 0;
 }
 
+.lesson-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lesson-icon {
+  flex: 0 0 1.4em;
+  text-align: center;
+}
+
 .category-progress {
   height: 8px;
+}
+
+.category-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 0;
+}
+
+.category-progress-panel {
+  margin-top: 18px;
+}
+
+.category-progress-row small {
+  color: var(--muted);
+}
+
+.category-progress-row .category-progress {
+  grid-column: 1 / -1;
 }
 
 .coach-card {
@@ -855,6 +913,23 @@ a:focus-visible {
   width: min(220px, 50%);
 }
 
+.settings-group select {
+  width: min(300px, 60%);
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.settings-hint {
+  margin: -4px 0 16px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .profile-header,
 .profile-stats,
 .profile-actions {
@@ -991,12 +1066,6 @@ a:focus-visible {
   .global-search {
     flex: 1 1 100%;
     width: 100%;
-  }
-
-  .header-actions .import-button,
-  .header-actions > .btn:not(.favorites-button) {
-    padding-inline: 9px;
-    font-size: 0.82rem;
   }
 
   .main-nav {
