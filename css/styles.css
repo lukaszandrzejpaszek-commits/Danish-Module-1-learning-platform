@@ -831,7 +831,8 @@ a:focus-visible {
   margin-right: 8px;
 }
 
-.speaking-record[hidden] {
+.speaking-record[hidden],
+.speaking-skip[hidden] {
   display: none;
 }
 

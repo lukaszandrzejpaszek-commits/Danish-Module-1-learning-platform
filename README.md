@@ -31,7 +31,7 @@ Speaking answer checks are available at <http://localhost:8000/tests/test_speaki
 - The Dictionary searches Danish and English vocabulary, including imported words. Flagged play buttons identify each language: Danish audio uses the selected voice; English audio uses an available browser voice.
 - Import JSON or CSV vocabulary in Settings. CSV files need `danish` and `english` columns; `category` and `gender` are optional.
 - Select Piper or browser speech in Settings. Piper generates speech locally with the `da_DK-talesyntese-medium` model.
-- Speaking practice compares recognized Danish text with the displayed word. You can retry an unrecognized or mismatched response; a mismatch is counted only if you choose to record it.
+- Speaking practice compares recognized Danish text with the displayed word. You can retry an unrecognized or mismatched response; a mismatch is counted only if you choose to record it. After three tries, you can skip the word without recording an answer.
 - Switch the interface between English and Danish using the UK and Danish flag buttons; the choice is saved on the device.
 - Responsive layout, dark mode, and local-first service-worker caching.
 

@@ -35,8 +35,11 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const main = $("#main-content");
 let currentView = "home";
 let activeRecognition = null;
+let recognitionTimeout = null;
 
 function cancelRecognition() {
+  window.clearTimeout(recognitionTimeout);
+  recognitionTimeout = null;
   if (!activeRecognition) return;
   const recognition = activeRecognition;
   activeRecognition = null;
@@ -898,6 +901,11 @@ function renderSpeaking(card, word, session, listen) {
   const record = makeElement("button", "btn btn-secondary speaking-record", "Record this answer");
   record.type = "button";
   record.hidden = true;
+  const skip = makeElement("button", "btn btn-secondary speaking-skip",
+    session.index + 1 >= session.words.length ? "Skip and finish" : "Skip to next word");
+  skip.type = "button";
+  skip.hidden = true;
+  let attempts = 0;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
     microphone.disabled = true;
@@ -906,14 +914,25 @@ function renderSpeaking(card, word, session, listen) {
   const submit = async (correct) => {
     microphone.disabled = true;
     record.disabled = true;
+    skip.disabled = true;
     await submitAnswer(word, correct, transcript.textContent);
     if (state.session === session && !session.answeredCurrent) {
       microphone.disabled = false;
       record.disabled = false;
+      skip.disabled = false;
+    } else {
+      skip.hidden = true;
     }
   };
   record.addEventListener("click", () => submit(false));
+  skip.addEventListener("click", () => {
+    if (state.session !== session || session.answeredCurrent) return;
+    session.index += 1;
+    renderQuestion();
+  });
   microphone.addEventListener("click", () => {
+    attempts += 1;
+    if (attempts >= 3) skip.hidden = false;
     cancelSpeech();
     record.hidden = true;
     heardLabel.hidden = true;
@@ -954,6 +973,8 @@ function renderSpeaking(card, word, session, listen) {
       };
       recognition.onend = () => {
         if (activeRecognition !== recognition) return;
+        window.clearTimeout(recognitionTimeout);
+        recognitionTimeout = null;
         activeRecognition = null;
         microphone.disabled = false;
         listen.disabled = false;
@@ -971,8 +992,17 @@ function renderSpeaking(card, word, session, listen) {
           record.hidden = false;
         }
       };
+      recognitionTimeout = window.setTimeout(() => {
+        if (activeRecognition !== recognition) return;
+        cancelRecognition();
+        microphone.disabled = false;
+        listen.disabled = false;
+        setUiText(status, "Speech recognition timed out. Please try again.");
+      }, 15000);
       recognition.start();
     } catch (error) {
+      window.clearTimeout(recognitionTimeout);
+      recognitionTimeout = null;
       if (activeRecognition === recognition) activeRecognition = null;
       microphone.disabled = false;
       listen.disabled = false;
@@ -980,7 +1010,7 @@ function renderSpeaking(card, word, session, listen) {
       console.error("Speech recognition could not start.", error);
     }
   });
-  card.append(status, heardLabel, microphone, record);
+  card.append(status, heardLabel, microphone, record, skip);
 }
 
 function renderChoices(card, options, expected, word, session) {
