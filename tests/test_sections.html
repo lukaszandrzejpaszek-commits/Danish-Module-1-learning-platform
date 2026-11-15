@@ -48,6 +48,10 @@
     const unrelated = { id: "other", danish: "hund", english: "dog" };
     const weekdayOptions = makeOptions(weekdaysWithIds[0], weekdaysWithIds, "english", 3, [unrelated]);
     assert(weekdayOptions.length === 3 && weekdayOptions.every((option) => weekdaysWithIds.some((word) => word.english === option)), "Lesson choices must prefer the whole section");
+    const danishOptions = makeOptions(weekdaysWithIds[0], weekdaysWithIds, "danish", 3, [unrelated]);
+    assert(danishOptions.length === 3 && danishOptions.every((option) => weekdaysWithIds.some((word) => word.danish === option)), "Danish lesson choices must prefer the whole section");
+    const smallDanishOptions = makeOptions(weekdaysWithIds[0], weekdaysWithIds.slice(0, 2), "danish", 3, [unrelated]);
+    assert(smallDanishOptions.includes(weekdaysWithIds[0].danish) && smallDanishOptions.includes(weekdaysWithIds[1].danish) && smallDanishOptions.includes("hund"), "Small sections must use Danish fallback choices");
     const correct = { id: 1, english: "Tuesday" };
     const section = [correct, { id: 2, english: "Wednesday" }, { id: 3, english: " tuesday " }];
     const fallback = [{ id: 4, english: "Wednesday" }, { id: 5, english: "dog" }, { id: 6, english: "DOG" }];

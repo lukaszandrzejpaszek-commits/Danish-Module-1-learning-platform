@@ -903,7 +903,11 @@ a:focus-visible {
 }
 
 .next-question {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 16px;
+  margin-left: auto;
 }
 
 .session-summary {

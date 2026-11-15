@@ -806,24 +806,24 @@ function renderPrompt(card, word, mode, session) {
     card.append(button);
     return button;
   };
-  const meaningOptions = () => session.sectionChoices
-    ? makeOptions(word, wordsInSection(session.category), "english", 3, state.words)
-    : makeOptions(word, state.words, "english");
+  const lessonOptions = (direction) => session.sectionChoices
+    ? makeOptions(word, wordsInSection(session.category), direction, 3, state.words)
+    : makeOptions(word, state.words, direction);
 
   if (mode === "multipleChoice") {
     ask("Choose the Danish translation");
     prompt(word.english, true);
-    renderChoices(card, makeOptions(word, state.words, "danish"), word.danish, word, session);
+    renderChoices(card, lessonOptions("danish"), word.danish, word, session);
   } else if (mode === "translation") {
     ask("Choose the English translation");
     prompt(word.danish, true);
     addSpeech(word.danish);
-    renderChoices(card, meaningOptions(), word.english, word, session);
+    renderChoices(card, lessonOptions("english"), word.english, word, session);
   } else if (mode === "listening") {
     ask("Listen, then choose the meaning");
     prompt("Which meaning did you hear?");
     addSpeech(word.danish);
-    renderChoices(card, meaningOptions(), word.english, word, session);
+    renderChoices(card, lessonOptions("english"), word.english, word, session);
   } else if (mode === "speaking") {
     ask("Say the Danish word");
     prompt(word.danish, true);
