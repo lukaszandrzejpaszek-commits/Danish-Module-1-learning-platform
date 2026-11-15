@@ -27,6 +27,7 @@ Speaking answer checks are available at <http://localhost:8000/tests/test_speaki
 - Choose a practice-type icon at the top of Lessons; hover over an icon for its description. Section sessions use the selected type throughout.
 - In lesson multiple-choice, translation and listening exercises, choices come from the same section where possible; small sections use other vocabulary to fill distinct choices.
 - Answer feedback counts down before advancing automatically (five seconds by default); change the delay in Settings or use Next word immediately. Speed rounds continue immediately.
+- After a session, Back returns to the screen where practice started, including after repeating it.
 - Per-answer history, accuracy, streak, response time, XP, mastery, and review scheduling in IndexedDB.
 - Dashboard, section progress, weak-area recommendations, exam practice, search, favorites, and JSON backup/restore.
 - The Dictionary searches Danish and English vocabulary, including imported words. Flagged play buttons identify each language: Danish audio uses the selected voice; English audio uses an available browser voice.

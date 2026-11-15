@@ -385,6 +385,11 @@ a:focus-visible {
   background: var(--surface);
 }
 
+.btn-back {
+  background: var(--blue);
+  color: #fff;
+}
+
 .btn-danger {
   background: var(--danger);
   color: #fff;

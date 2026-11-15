@@ -278,6 +278,7 @@ const ENGLISH_TO_DANISH = {
   "Nice work": "Godt klaret",
   "Review these categories": "Gentag disse kategorier",
   "Back to dashboard": "Tilbage til oversigten",
+  "← Back": "← Tilbage",
   "Practice again": "Øv igen",
   "Practice this section": "Øv denne kategori",
   "Practice type": "Øvelsestype",

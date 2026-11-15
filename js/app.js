@@ -34,6 +34,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const main = $("#main-content");
 let currentView = "home";
+let lastPracticeOrigin = "home";
 let activeRecognition = null;
 let recognitionTimeout = null;
 
@@ -700,7 +701,7 @@ function filterWords(filter, category) {
   return words;
 }
 
-async function startSession({ mode = "multipleChoice", filter = "all", category = "", total = 10, sectionChoices = false } = {}) {
+async function startSession({ mode = "multipleChoice", filter = "all", category = "", total = 10, sectionChoices = false, originView = currentView === "practice-session" ? lastPracticeOrigin : currentView } = {}) {
   if (!state.words.length) {
     showNotice("Load vocabulary with Import words before starting a practice session.", "error");
     return;
@@ -712,11 +713,13 @@ async function startSession({ mode = "multipleChoice", filter = "all", category 
   }
   const limit = mode === "speed" ? candidates.length : Math.min(total, candidates.length);
   if (state.session) window.clearInterval(state.session.answerTimer);
+  lastPracticeOrigin = originView;
   state.session = {
     mode,
     filter,
     category,
     sectionChoices,
+    originView,
     words: candidates.slice(0, limit),
     index: 0,
     correct: 0,
@@ -1205,8 +1208,11 @@ async function finishSession() {
   home.addEventListener("click", () => showView("home"));
   const again = makeElement("button", "btn btn-secondary", "Practice again");
   again.type = "button";
-  again.addEventListener("click", () => startSession({ mode: session.mode, filter: session.filter, category: session.category, sectionChoices: session.sectionChoices }));
-  summary.append(home, again);
+  again.addEventListener("click", () => startSession({ mode: session.mode, filter: session.filter, category: session.category, sectionChoices: session.sectionChoices, originView: session.originView }));
+  const back = makeElement("button", "btn btn-back", "← Back");
+  back.type = "button";
+  back.addEventListener("click", () => showView(session.originView));
+  summary.append(home, again, back);
   container.append(summary);
   updateProfile();
 }
