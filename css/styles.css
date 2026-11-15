@@ -451,6 +451,81 @@ a:focus-visible {
   box-shadow: 0 0 0 2px var(--red);
 }
 
+.dictionary-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(100%, 760px);
+  min-height: 55vh;
+  margin: 0 auto;
+}
+
+.dictionary-search-area {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.dictionary-search-area h2 {
+  margin: 0 0 18px;
+}
+
+.dictionary-search {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dictionary-status {
+  color: var(--muted);
+}
+
+.dictionary-results {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 520px);
+  margin: 0 auto;
+}
+
+.dictionary-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.dictionary-term {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.dictionary-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 54px;
+  flex: 0 0 54px;
+}
+
+.dictionary-play svg {
+  display: block;
+  width: 16px;
+  height: 10px;
+}
+
 .lessons-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

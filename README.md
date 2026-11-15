@@ -15,6 +15,7 @@ python -m http.server 8000
 Then open <http://localhost:8000>. After the first successful load, the app shell and vocabulary list are cached for offline use. Speech uses the Danish Piper neural voice by default; choose the installed browser voice in Settings if preferred.
 
 To run the topic-section checks, open <http://localhost:8000/tests/test_sections.html> while the server is running.
+Dictionary search and browser-voice checks are available at <http://localhost:8000/tests/test_dictionary.html>.
 
 ## Included features
 
@@ -25,6 +26,7 @@ To run the topic-section checks, open <http://localhost:8000/tests/test_sections
 - Choose one of six practice-type icons at the top of Lessons; hover over an icon for its description. Section sessions use the selected type throughout.
 - Per-answer history, accuracy, streak, response time, XP, mastery, and review scheduling in IndexedDB.
 - Dashboard, section progress, weak-area recommendations, exam practice, search, favorites, and JSON backup/restore.
+- The Dictionary searches Danish and English vocabulary, including imported words. Flagged play buttons identify each language: Danish audio uses the selected voice; English audio uses an available browser voice.
 - Import JSON or CSV vocabulary in Settings. CSV files need `danish` and `english` columns; `category` and `gender` are optional.
 - Select Piper or browser speech in Settings. Piper generates speech locally with the `da_DK-talesyntese-medium` model.
 - Switch the interface between English and Danish using the UK and Danish flag buttons; the choice is saved on the device.

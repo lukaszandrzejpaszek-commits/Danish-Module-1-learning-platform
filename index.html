@@ -45,6 +45,9 @@
             <button class="nav-btn" data-view="lessons">
                 📚 Lessons
             </button>
+            <button class="nav-btn" data-view="dictionary">
+                📖 Dictionary
+            </button>
             <button class="nav-btn" data-view="practice">
                 🎯 Practice
             </button>
@@ -113,6 +116,18 @@
                             <button class="btn btn-secondary">Focus Now</button>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <section id="view-dictionary" class="view">
+                <div class="dictionary-container">
+                    <div class="dictionary-search-area">
+                        <h2>Dictionary</h2>
+                        <label for="dictionary-search">Search Danish or English</label>
+                        <input id="dictionary-search" class="dictionary-search" type="search" autocomplete="off" placeholder="Search Danish or English">
+                        <p id="dictionary-status" class="dictionary-status" role="status"></p>
+                    </div>
+                    <div id="dictionary-results" class="dictionary-results"></div>
                 </div>
             </section>
 

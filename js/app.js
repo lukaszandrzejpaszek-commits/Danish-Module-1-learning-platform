@@ -15,7 +15,8 @@ import {
   validateBackup
 } from "./storage.js";
 import { isTypingCorrect, makeOptions, shuffle } from "./game.js";
-import { setSpeechMode, setSpeechPitch, setSpeechRate, speakDanish } from "./speech.js";
+import { findDictionaryMatches } from "./dictionary.js";
+import { setSpeechMode, setSpeechPitch, setSpeechRate, speakDanish, speakEnglish } from "./speech.js";
 import { setInterfaceLanguage as applyInterfaceLanguage, setUiAttribute, setUiText, translateUiText } from "./i18n.js";
 
 const state = {
@@ -138,6 +139,7 @@ function showView(name) {
   if (name === "progress") renderProgress();
   if (name === "weak-areas") renderWeakAreas();
   if (name === "lessons") renderLessons();
+  if (name === "dictionary") renderDictionary();
   if (name === "exam-prep") renderExamPrep();
   if (name === "home") refreshDashboard();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -168,6 +170,7 @@ async function reloadData() {
   state.words = words;
   state.progress = new Map(progress.map((item) => [item.wordId, item]));
   state.attempts = attempts;
+  if (currentView === "dictionary") renderDictionary();
 }
 
 async function loadInitialVocabulary() {
@@ -295,6 +298,7 @@ function bindNavigation() {
   });
   $("#language-dk").addEventListener("click", () => changeInterfaceLanguage("da"));
   $("#language-en").addEventListener("click", () => changeInterfaceLanguage("en"));
+  $("#dictionary-search").addEventListener("input", renderDictionary);
   $$(".lesson-mode-button").forEach((button) => {
     button.addEventListener("click", () => {
       $$(".lesson-mode-button").forEach((option) => option.setAttribute("aria-pressed", String(option === button)));
@@ -587,6 +591,44 @@ function renderSearch(query) {
     });
   }
   results.hidden = false;
+}
+
+function renderDictionary() {
+  const query = $("#dictionary-search").value;
+  const results = $("#dictionary-results");
+  results.replaceChildren();
+  if (!query.trim()) {
+    setUiText($("#dictionary-status"), "Enter a Danish or English word to search.");
+    return;
+  }
+  const matches = findDictionaryMatches(state.words, query);
+  setUiText($("#dictionary-status"), matches.length
+    ? `${matches.length} dictionary ${matches.length === 1 ? "result" : "results"}.`
+    : "No matching words.");
+  const fragment = document.createDocumentFragment();
+  matches.forEach((word) => {
+    const row = makeElement("article", "dictionary-entry");
+    const audioButton = (label, language, speak) => {
+      const button = makeElement("button", "icon-btn dictionary-play", "▶");
+      button.type = "button";
+      setUiAttribute(button, "aria-label", label);
+      setUiAttribute(button, "title", label);
+      button.append($(`#language-${language} svg`).cloneNode(true));
+      button.addEventListener("click", () => speak().catch((error) => showNotice(translateUiText(error.message), "error")));
+      return button;
+    };
+    const separator = makeElement("span", "dictionary-separator", "—");
+    separator.setAttribute("aria-hidden", "true");
+    row.append(
+      audioButton(`Hear Danish: ${word.danish}`, "dk", () => speakDanish(word.danish, false, handleSpeechStatus)),
+      makeContentElement("strong", "dictionary-term", word.danish),
+      separator,
+      makeContentElement("span", "dictionary-term", word.english),
+      audioButton(`Hear English: ${word.english}`, "en", () => speakEnglish(word.english))
+    );
+    fragment.append(row);
+  });
+  results.append(fragment);
 }
 
 async function toggleFavorite(word) {

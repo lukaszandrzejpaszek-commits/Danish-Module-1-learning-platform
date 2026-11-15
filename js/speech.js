@@ -192,17 +192,26 @@ function getPiperEngine() {
   return piperEnginePromise;
 }
 
-function speakWithBrowser(text, slow) {
+function speakWithBrowser(text, slow, language = "da") {
+  const isEnglish = language === "en";
+  const unavailable = isEnglish
+    ? "English text-to-speech is not available in this browser."
+    : "Danish text-to-speech is not available in this browser.";
   if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-    return Promise.reject(new Error("Danish text-to-speech is not available in this browser."));
+    return Promise.reject(new Error(unavailable));
   }
 
   return new Promise((resolve, reject) => {
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find((item) => /^da-dk$/i.test(item.lang))
-      || voices.find((item) => /^da(?:-|$)/i.test(item.lang));
-    utterance.lang = voice?.lang || "da-DK";
+    const voice = isEnglish
+      ? voices.find((item) => /^en-us$/i.test(item.lang)) || voices.find((item) => /^en(?:-|$)/i.test(item.lang))
+      : voices.find((item) => /^da-dk$/i.test(item.lang)) || voices.find((item) => /^da(?:-|$)/i.test(item.lang));
+    if (isEnglish && voices.length && !voice) {
+      reject(new Error(unavailable));
+      return;
+    }
+    utterance.lang = voice?.lang || (isEnglish ? "en-US" : "da-DK");
     utterance.rate = slow ? Math.min(currentRate, 0.75) : currentRate;
     utterance.pitch = currentPitch;
     if (voice) utterance.voice = voice;
@@ -291,6 +300,7 @@ export async function speakDanish(text, slow = false, onStatus = null) {
     } finally {
       if (currentRequest === speechRequest) activeStatusHandler = null;
     }
+
     return;
   }
 
@@ -319,4 +329,10 @@ export async function speakDanish(text, slow = false, onStatus = null) {
   } finally {
     if (currentRequest === speechRequest) activeStatusHandler = null;
   }
+}
+
+export async function speakEnglish(text) {
+  if (!text) return;
+  cancelSpeech();
+  await speakWithBrowser(text, false, "en");
 }

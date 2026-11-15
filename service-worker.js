@@ -1,4 +1,4 @@
-const CACHE_NAME = "danish-module-1-v23";
+const CACHE_NAME = "danish-module-1-v27";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const APP_ASSETS = [
   "./js/config.js",
   "./js/storage.js",
   "./js/game.js",
+  "./js/dictionary.js",
   "./js/speech.js",
   "./js/i18n.js",
   "./js/app.js",

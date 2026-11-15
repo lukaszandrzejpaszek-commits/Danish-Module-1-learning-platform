@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Dictionary tests</title></head>
+<body>
+<pre id="result">Running dictionary tests...</pre>
+<script type="module">
+  import { findDictionaryMatches } from "../js/dictionary.js";
+  import { setSpeechMode, speakDanish, speakEnglish } from "../js/speech.js";
+
+  function assert(condition, message) {
+    if (!condition) throw new Error(message);
+  }
+
+  try {
+    const words = [
+      { danish: "Æble", english: "apple, fruit" },
+      { danish: "hund", english: "dog" },
+      { danish: "brød", english: "bread" }
+    ];
+    assert(findDictionaryMatches(words, "  æBLE ").length === 1, "Danish search must ignore case and spaces");
+    assert(findDictionaryMatches(words, "FRUIT")[0] === words[0], "English translations must be searchable");
+    assert(findDictionaryMatches(words, "Æ\u0301BLE").length === 0, "Different accented letters must not be conflated");
+    assert(findDictionaryMatches([{ danish: "a\u030A", english: "letter" }], "å").length === 1, "Unicode forms must match");
+    assert(findDictionaryMatches(words, "missing").length === 0, "Unknown words must not match");
+    assert(findDictionaryMatches(words, "  ").length === 0, "Empty searches must not match everything");
+
+    let voices = [{ lang: "da-DK" }, { lang: "en-GB" }];
+    const spoken = [];
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      configurable: true,
+      value: class { constructor(text) { this.text = text; } }
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        getVoices: () => voices,
+        cancel() {},
+        speak(utterance) {
+          spoken.push(utterance);
+          queueMicrotask(() => utterance.onend());
+        }
+      }
+    });
+    setSpeechMode("browser");
+    await speakDanish("hund");
+    await speakEnglish("dog");
+    assert(spoken[0].text === "hund" && spoken[0].lang === "da-DK", "Danish playback must use Danish");
+    assert(spoken[1].text === "dog" && spoken[1].lang === "en-GB", "English playback must use an English voice");
+    voices = [{ lang: "da-DK" }];
+    let unavailable = false;
+    try { await speakEnglish("dog"); } catch (error) {
+      unavailable = error.message === "English text-to-speech is not available in this browser.";
+    }
+    assert(unavailable, "Missing English voices must be reported");
+    document.querySelector("#result").textContent = "PASS";
+  } catch (error) {
+    document.querySelector("#result").textContent = `FAIL: ${error.message}`;
+    throw error;
+  }
+</script>
+</body>
+</html>

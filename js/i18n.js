@@ -58,6 +58,7 @@ const ENGLISH_TO_DANISH = {
   "Neither Piper nor browser speech could play audio.": "Hverken Piper eller browserens tale kunne afspille lyd.",
   "The generated Piper audio could not be played.": "Den genererede Piper-lyd kunne ikke afspilles.",
   "Danish text-to-speech is not available in this browser.": "Dansk tekst-til-tale er ikke tilgængelig i denne browser.",
+  "English text-to-speech is not available in this browser.": "Engelsk tekst-til-tale er ikke tilgængelig i denne browser.",
   "Hear a Danish word and choose its meaning": "Lyt til et dansk ord, og vælg betydningen",
   "Reveal the translation and rate recall": "Vis oversættelsen, og vurder, hvor godt du huskede den",
   "Choose the Danish word for an English prompt": "Vælg det danske ord til den engelske betydning",
@@ -77,6 +78,10 @@ const ENGLISH_TO_DANISH = {
   "English": "Engelsk",
   "🏠 Home": "🏠 Hjem",
   "📚 Lessons": "📚 Lektioner",
+  "📖 Dictionary": "📖 Ordbog",
+  "Dictionary": "Ordbog",
+  "Search Danish or English": "Søg på dansk eller engelsk",
+  "Enter a Danish or English word to search.": "Indtast et dansk eller engelsk ord for at søge.",
   "🎯 Practice": "🎯 Øvelse",
   "📊 Progress": "📊 Fremskridt",
   "⚠️ Weak Areas": "⚠️ Svære områder",
@@ -299,6 +304,9 @@ const ENGLISH_TO_DANISH = {
 };
 
 const PATTERNS = [
+  [/^(\d+) dictionary results?\.$/, (count) => `${count} ${count === "1" ? "resultat" : "resultater"} i ordbogen.`],
+  [/^Hear Danish: (.*)$/, (word) => `Hør dansk: ${word}`],
+  [/^Hear English: (.*)$/, (word) => `Hør engelsk: ${word}`],
   [/^(\d+) Danish number words \(0–100\) added to your vocabulary\.$/, (count) => `${count} danske talord (0–100) er føjet til dit ordforråd.`],
   [/^(\d+) vocabulary words, including Danish numbers 0–100, are ready to study\.$/, (count) => `${count} ord, herunder danske tal fra 0–100, er klar til at blive øvet.`],
   [/^(\d+) words from the supplied list are ready to study\.$/, (count) => `${count} ord fra ordlisten er klar til at blive øvet.`],
