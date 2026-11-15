@@ -250,6 +250,7 @@ const ENGLISH_TO_DANISH = {
   "Back to dashboard": "Tilbage til oversigten",
   "Practice again": "Øv igen",
   "Practice this section": "Øv denne kategori",
+  "Practice type": "Øvelsestype",
   "Progress by section": "Fremskridt efter kategori",
   "Weekly study insight": "Ugens studieindsigt",
   "Not practiced yet": "Ikke øvet endnu",

@@ -22,6 +22,7 @@ To run the topic-section checks, open <http://localhost:8000/tests/test_sections
 - Noun topics such as family, food, animals, and days of the week are separate sections, without duplicating words or progress. The source list has six weekdays and no month names.
 - Danish cardinal numbers from 0 to 100, included as an additional practice category.
 - Multiple choice, Danish-to-English, typing, spelling/listening, flashcards, listening comprehension, mixed practice, and 60-second challenge.
+- Choose one of six practice-type icons at the top of Lessons; hover over an icon for its description. Section sessions use the selected type throughout.
 - Per-answer history, accuracy, streak, response time, XP, mastery, and review scheduling in IndexedDB.
 - Dashboard, section progress, weak-area recommendations, exam practice, search, favorites, and JSON backup/restore.
 - Import JSON or CSV vocabulary in Settings. CSV files need `danish` and `english` columns; `category` and `gender` are optional.

@@ -295,6 +295,11 @@ function bindNavigation() {
   });
   $("#language-dk").addEventListener("click", () => changeInterfaceLanguage("da"));
   $("#language-en").addEventListener("click", () => changeInterfaceLanguage("en"));
+  $$(".lesson-mode-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      $$(".lesson-mode-button").forEach((option) => option.setAttribute("aria-pressed", String(option === button)));
+    });
+  });
   $("#settings-btn").addEventListener("click", () => openModal("settings-modal"));
   $("#profile-btn").addEventListener("click", () => {
     updateProfile();
@@ -1004,7 +1009,7 @@ function renderLessons() {
     bar.append(fill);
     const button = makeElement("button", "btn btn-primary", "Practice this section");
     button.type = "button";
-    button.addEventListener("click", () => startSession({ category, mode: "mixed" }));
+    button.addEventListener("click", () => startSession({ category, mode: $("#lesson-mode .lesson-mode-button[aria-pressed='true']").dataset.lessonMode }));
     card.append(heading, bar, button);
     list.append(card);
   });

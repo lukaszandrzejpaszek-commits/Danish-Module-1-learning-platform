@@ -1,4 +1,4 @@
-const CACHE_NAME = "danish-module-1-v20";
+const CACHE_NAME = "danish-module-1-v23";
 const APP_ASSETS = [
   "./",
   "./index.html",
