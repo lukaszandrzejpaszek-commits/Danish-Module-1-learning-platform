@@ -33,6 +33,18 @@ export function isTypingCorrect(answer, expected) {
   return levenshteinDistance(normalizedAnswer, normalizedExpected) <= allowedDistance;
 }
 
+export function isSpokenAnswerCorrect(answer, expected) {
+  const normalizedAnswer = normalizeAnswer(answer);
+  if (!normalizedAnswer) return false;
+  const withParentheses = String(expected || "").replace(/[()]/g, "");
+  let withoutParentheses = String(expected || "");
+  while (/\([^()]*\)/.test(withoutParentheses)) {
+    withoutParentheses = withoutParentheses.replace(/\([^()]*\)/g, "");
+  }
+  return [expected, withParentheses, withoutParentheses]
+    .some((value) => normalizedAnswer === normalizeAnswer(value));
+}
+
 export function makeOptions(correctWord, words, direction = "danish", count = 3, fallbackWords = null) {
   const property = direction === "english" ? "english" : "danish";
   if (fallbackWords) {

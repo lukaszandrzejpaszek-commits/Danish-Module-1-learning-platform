@@ -182,6 +182,7 @@ export const MODES = {
   spelling: "Spelling",
   flashcards: "Flashcards",
   listening: "Listening",
+  speaking: "Speaking",
   mixed: "Mixed practice",
   speed: "60-second challenge"
 };

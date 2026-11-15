@@ -14,9 +14,9 @@ import {
   saveVocabulary,
   validateBackup
 } from "./storage.js";
-import { isTypingCorrect, makeOptions, shuffle } from "./game.js";
+import { isSpokenAnswerCorrect, isTypingCorrect, makeOptions, shuffle } from "./game.js";
 import { findDictionaryMatches } from "./dictionary.js";
-import { setSpeechMode, setSpeechPitch, setSpeechRate, speakDanish, speakEnglish } from "./speech.js";
+import { cancelSpeech, setSpeechMode, setSpeechPitch, setSpeechRate, speakDanish, speakEnglish } from "./speech.js";
 import { setInterfaceLanguage as applyInterfaceLanguage, setUiAttribute, setUiText, translateUiText } from "./i18n.js";
 
 const state = {
@@ -34,6 +34,14 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const main = $("#main-content");
 let currentView = "home";
+let activeRecognition = null;
+
+function cancelRecognition() {
+  if (!activeRecognition) return;
+  const recognition = activeRecognition;
+  activeRecognition = null;
+  recognition.abort();
+}
 
 function showNotice(message, type = "info") {
   let notice = $("#app-notice");
@@ -133,6 +141,7 @@ function addToolbar() {
 }
 
 function showView(name) {
+  if (name !== "practice-session") cancelRecognition();
   currentView = name;
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
   $$(".nav-btn").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
@@ -376,7 +385,8 @@ function renderPracticeModes() {
   });
   const extras = [
     ["spelling-mode", "✍️ Spelling trainer", "Listen and type exactly what you hear", "spelling"],
-    ["mixed-mode", "🎲 Mixed challenge", "Switch between exercise types", "mixed"]
+    ["mixed-mode", "🎲 Mixed challenge", "Switch between exercise types", "mixed"],
+    ["speaking-mode", "🎤 Speaking", "Say the Danish word and check what was heard", "speaking"]
   ];
   extras.forEach(([id, title, description, mode]) => {
     let card = document.getElementById(id);
@@ -713,6 +723,7 @@ function chooseCurrentMode(session) {
 }
 
 function renderQuestion() {
+  cancelRecognition();
   const session = state.session;
   if (!session) return;
   if (session.mode !== "speed" && session.index >= session.words.length) {
@@ -791,6 +802,12 @@ function renderPrompt(card, word, mode, session) {
     prompt("Which meaning did you hear?");
     addSpeech(word.danish);
     renderChoices(card, meaningOptions(), word.english, word, session);
+  } else if (mode === "speaking") {
+    ask("Say the Danish word");
+    prompt(word.danish, true);
+    card.append(makeContentElement("p", "speaking-meaning", word.english));
+    const listen = addSpeech(word.danish);
+    renderSpeaking(card, word, session, listen);
   } else if (mode === "typing" || mode === "spelling") {
     const reverseTyping = mode === "typing" && session.typingDirection === "english";
     ask(mode === "spelling" ? "Listen and type the Danish word" : "Type the translation");
@@ -866,6 +883,104 @@ function renderPrompt(card, word, mode, session) {
     prompt(word.english, true);
     renderChoices(card, makeOptions(word, state.words, "danish"), word.danish, word, session);
   }
+}
+
+function renderSpeaking(card, word, session, listen) {
+  card.append(makeElement("p", "speaking-hint", "Speech recognition may send audio to an online service. It checks recognized text, not pronunciation quality."));
+  const status = makeElement("p", "speaking-status");
+  status.setAttribute("role", "status");
+  const heardLabel = makeElement("p", "speaking-heard-label", "Heard:");
+  heardLabel.hidden = true;
+  const transcript = makeContentElement("span", "speaking-transcript", "");
+  heardLabel.append(" ", transcript);
+  const microphone = makeElement("button", "btn btn-primary speaking-microphone", "🎤 Speak");
+  microphone.type = "button";
+  const record = makeElement("button", "btn btn-secondary speaking-record", "Record this answer");
+  record.type = "button";
+  record.hidden = true;
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    microphone.disabled = true;
+    setUiText(status, "Speech recognition is not available in this browser.");
+  }
+  const submit = async (correct) => {
+    microphone.disabled = true;
+    record.disabled = true;
+    await submitAnswer(word, correct, transcript.textContent);
+    if (state.session === session && !session.answeredCurrent) {
+      microphone.disabled = false;
+      record.disabled = false;
+    }
+  };
+  record.addEventListener("click", () => submit(false));
+  microphone.addEventListener("click", () => {
+    cancelSpeech();
+    record.hidden = true;
+    heardLabel.hidden = true;
+    transcript.textContent = "";
+    microphone.disabled = true;
+    listen.disabled = true;
+    setUiText(status, "Starting microphone...");
+    let recognition;
+    try {
+      recognition = new Recognition();
+      activeRecognition = recognition;
+      recognition.lang = "da-DK";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      let heard = "";
+      let errorMessage = "";
+      recognition.onstart = () => {
+        if (activeRecognition === recognition) setUiText(status, "Listening...");
+      };
+      recognition.onresult = (event) => {
+        if (activeRecognition !== recognition) return;
+        const result = event.results[event.resultIndex];
+        if (result?.isFinal && result[0]) heard = result[0].transcript.trim();
+      };
+      recognition.onerror = (event) => {
+        if (activeRecognition !== recognition) return;
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          errorMessage = "Microphone or speech recognition permission was denied.";
+        } else if (event.error === "no-speech" || event.error === "audio-capture") {
+          errorMessage = "No speech was captured. Check your microphone and try again.";
+        } else if (event.error === "network") {
+          errorMessage = "Speech recognition requires a network connection in this browser.";
+        } else if (event.error === "language-not-supported") {
+          errorMessage = "Danish speech recognition is not available in this browser.";
+        } else {
+          errorMessage = "Speech recognition failed. Please try again.";
+        }
+      };
+      recognition.onend = () => {
+        if (activeRecognition !== recognition) return;
+        activeRecognition = null;
+        microphone.disabled = false;
+        listen.disabled = false;
+        if (errorMessage || !heard) {
+          setUiText(status, errorMessage || "No speech was recognized. Please try again.");
+          return;
+        }
+        transcript.textContent = heard;
+        heardLabel.hidden = false;
+        if (isSpokenAnswerCorrect(heard, word.danish)) {
+          setUiText(status, "The recognized text matches.");
+          submit(true);
+        } else {
+          setUiText(status, "The recognized text did not match. Try again or record this answer.");
+          record.hidden = false;
+        }
+      };
+      recognition.start();
+    } catch (error) {
+      if (activeRecognition === recognition) activeRecognition = null;
+      microphone.disabled = false;
+      listen.disabled = false;
+      setUiText(status, "Speech recognition could not start. Check microphone permissions and try again.");
+      console.error("Speech recognition could not start.", error);
+    }
+  });
+  card.append(status, heardLabel, microphone, record);
 }
 
 function renderChoices(card, options, expected, word, session) {
@@ -963,6 +1078,7 @@ function startSpeedTimer() {
 }
 
 async function finishSession() {
+  cancelRecognition();
   const session = state.session;
   if (!session) {
     showView("home");

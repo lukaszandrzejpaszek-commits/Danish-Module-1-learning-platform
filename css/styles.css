@@ -818,6 +818,23 @@ a:focus-visible {
   margin-bottom: 8px;
 }
 
+.speaking-meaning,
+.speaking-hint {
+  color: var(--muted);
+}
+
+.speaking-hint {
+  font-size: 0.9rem;
+}
+
+.speaking-microphone {
+  margin-right: 8px;
+}
+
+.speaking-record[hidden] {
+  display: none;
+}
+
 .answer-form {
   display: flex;
   gap: 10px;
